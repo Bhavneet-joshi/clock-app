@@ -7,20 +7,15 @@ node_modules/
 .expo/
 dist/
 web-build/
-expo-env.d.ts
-
-# Native
-*.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.orig.*
 
-# Metro
-.metro-health-check*
-
-# debug
+# Node
+node_modules/
 npm-debug.*
 yarn-debug.*
 yarn-error.*
@@ -31,8 +26,45 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
+
+# Android/IntelliJ
+build/
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+!debug.keystore
+
+# iOS
+ios/Pods/
+ios/build/
+ios/Podfile.lock
+
+# Temporary files
+*.log
+*.tmp
+*.tmp.*
+log.txt
+npm-debug.log*
+
+# Expo
+.expo/
+web-build/
+
+# EAS
+.eas/
+
+# vscode
+.vscode/
+
+# Logs
+metro-debug.log*
 
 app-example

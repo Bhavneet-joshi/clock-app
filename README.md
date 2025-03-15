@@ -1,50 +1,142 @@
-# Welcome to your Expo app 👋
+# Digital Clock App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A minimalist digital clock app with alarm, timer, and stopwatch functionality.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Clock**: Digital display of current time with next alarm indicator
+- **Alarm**: Set alarms with custom sound, snooze, and repeat options
+- **Timer**: Countdown timer with presets
+- **Stopwatch**: Precise timing with lap recording
 
-   ```bash
+## Tech Stack
+
+- React Native
+- Expo
+- AsyncStorage for data persistence
+- Expo Router for navigation
+- React Native Reanimated for animations
+
+## Installation
+
+1. Clone the repository
+2. Install dependencies:
+   ```
    npm install
    ```
-
-2. Start the app
-
-   ```bash
-    npx expo start
+3. Start the development server:
+   ```
+   npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+## Deployment
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Prerequisites
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+1. Install EAS CLI:
+   ```
+   npm install -g eas-cli
+   ```
+2. Log in to your Expo account:
+   ```
+   eas login
+   ```
+3. Configure your project:
+   ```
+   eas build:configure
+   ```
 
-## Get a fresh project
+### Build for Android
 
-When you're ready, run:
+1. Build a preview APK (for testing):
+   ```
+   eas build --platform android --profile preview
+   ```
 
-```bash
-npm run reset-project
-```
+2. Build for production:
+   ```
+   eas build --platform android --profile production
+   ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Build for iOS
 
-## Learn more
+1. Build for internal testing:
+   ```
+   eas build --platform ios --profile preview
+   ```
 
-To learn more about developing your project with Expo, look at the following resources:
+2. Build for production:
+   ```
+   eas build --platform ios --profile production
+   ```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Submit to App Stores
 
-## Join the community
+#### Google Play Store
 
-Join our community of developers creating universal apps.
+1. Create a Google Play Console account if you don't have one
+2. Create a new app in the Google Play Console
+3. Generate a service account key and save it as `google-service-account.json` in your project root
+4. Submit to Google Play Store:
+   ```
+   eas submit -p android --latest
+   ```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+#### Apple App Store
+
+1. Create an Apple Developer account if you don't have one
+2. Create a new app in App Store Connect
+3. Set up the following environment variables:
+   ```
+   export APPLE_ID="your-apple-id@example.com"
+   export ASC_APP_ID="your-app-store-connect-app-id"
+   export APPLE_TEAM_ID="your-team-id"
+   ```
+4. Submit to Apple App Store:
+   ```
+   eas submit -p ios --latest
+   ```
+
+### Over-the-Air Updates
+
+This app is configured to use Expo Updates for OTA updates. To publish an update:
+
+1. Make your changes to the app
+2. Run:
+   ```
+   eas update --branch production --message "Description of changes"
+   ```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Reduced motion warning in development**:
+   - This is a development-only warning and can be safely ignored
+   - The app handles this with a custom hook in `hooks/useReducedMotionConfig.ts`
+
+2. **Build failures**:
+   - Ensure your Expo account has the correct credentials
+   - Check that all native dependencies are properly installed
+   - Verify your app.json and eas.json configurations
+
+3. **Font loading issues**:
+   - The app uses the Digital-7 (mono) font
+   - Ensure the font file is correctly placed in `assets/fonts/`
+
+## Project Structure
+
+- `app/` - Main application code
+  - `(tabs)/` - Tab-based navigation screens
+    - `index.tsx` - Clock screen
+    - `alarm.tsx` - Alarm screen
+    - `timer.tsx` - Timer screen
+    - `stopwatch.tsx` - Stopwatch screen
+    - `_layout.tsx` - Tab navigation layout
+  - `index.tsx` - Entry point that redirects to tabs
+- `hooks/` - Custom React hooks
+- `assets/` - Static assets including fonts and images
+
+## License
+
+MIT

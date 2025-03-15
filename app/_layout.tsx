@@ -12,6 +12,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useReducedMotionConfig } from '@/hooks/useReducedMotionConfig';
 import { usePerformanceOptimizations } from '@/hooks/usePerformanceOptimizations';
 import useIconFonts from '@/hooks/useIconFonts';
+import TouchCapture from '@/components/TouchCapture';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -107,12 +108,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={theme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <TouchCapture>
+      <ThemeProvider value={theme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </TouchCapture>
   );
 }

@@ -4,17 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { styles as additionalStyles } from './index.styles';
+import { styles } from '../../components/HomeStyles';
 
 const { width } = Dimensions.get('window');
 
-// Merge the styles
-const styles = {
-  ...StyleSheet.create({
-    // Existing styles would be here
-  }),
-  ...additionalStyles
-};
+// No need for StyleSheet.create merge since we're importing the complete styles
 
 interface Alarm {
   id: string;

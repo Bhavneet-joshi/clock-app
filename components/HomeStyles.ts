@@ -176,10 +176,18 @@ export const styles = StyleSheet.create({
     backgroundColor: '#a4e4a2',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    // Platform-specific shadow handling
+    ...(Platform.OS === 'web' 
+      ? { 
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)' 
+        } 
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 4,
+        }
+    ),
   }
 }); 

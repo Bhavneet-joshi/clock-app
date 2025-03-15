@@ -5,10 +5,82 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { styles } from '../../components/HomeStyles';
+import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 
 const { width } = Dimensions.get('window');
 
-// No need for StyleSheet.create merge since we're importing the complete styles
+// Memoized components for better performance
+const Clock = React.memo(({ hours, minutes, seconds, showColons }: { hours: string, minutes: string, seconds: string, showColons: boolean }) => {
+  return (
+    <View style={styles.clockContainer}>
+      <Text style={styles.mainTime}>
+        {hours}
+        <Text style={[styles.colon, !showColons && styles.colonHidden]}>:</Text>
+        {minutes}
+        <Text style={[styles.seconds, !showColons && styles.colonHidden]}>:{seconds}</Text>
+      </Text>
+    </View>
+  );
+});
+
+const AlarmItem = React.memo(({ 
+  item, 
+  onToggle, 
+  onDelete, 
+  formatAlarmTime, 
+  getFormattedDays 
+}: { 
+  item: Alarm, 
+  onToggle: (alarm: Alarm) => void, 
+  onDelete: (alarm: Alarm) => void,
+  formatAlarmTime: (timeString: string) => string,
+  getFormattedDays: (alarm: Alarm) => string
+}) => {
+  return (
+    <View style={styles.alarmItem}>
+      <View style={styles.alarmTimeContainer}>
+        <Text style={[styles.alarmTime, !item.isActive && styles.inactiveAlarmText]}>
+          {formatAlarmTime(item.time)}
+        </Text>
+        <TouchableOpacity 
+          style={styles.toggleButton}
+          onPress={() => onToggle(item)}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons 
+            name={item.isActive ? "play-circle" : "pause-circle"} 
+            size={32} 
+            color={item.isActive ? "#a4e4a2" : "#666"} 
+          />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.alarmDetailsContainer}>
+        <Text style={[styles.songTitle, !item.isActive && styles.inactiveAlarmText]}>
+          {item.label || "ALARM"}
+        </Text>
+        <Text style={styles.alarmDays}>{getFormattedDays(item)}</Text>
+      </View>
+      <TouchableOpacity 
+        style={styles.deleteButton} 
+        onPress={() => onDelete(item)}
+        activeOpacity={0.7}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="trash-outline" size={20} color="#ff5252" />
+      </TouchableOpacity>
+    </View>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  return (
+    prevProps.item.id === nextProps.item.id && 
+    prevProps.item.isActive === nextProps.item.isActive && 
+    prevProps.item.time === nextProps.item.time && 
+    prevProps.item.label === nextProps.item.label &&
+    JSON.stringify(prevProps.item.days) === JSON.stringify(nextProps.item.days)
+  );
+});
 
 interface Alarm {
   id: string;
@@ -23,6 +95,9 @@ interface Alarm {
 }
 
 export default function ClockScreen() {
+  // Add performance monitoring
+  const perf = usePerformanceMonitor('ClockScreen');
+
   const router = useRouter();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showColons, setShowColons] = useState(true);
@@ -33,26 +108,35 @@ export default function ClockScreen() {
   const [selectedAlarm, setSelectedAlarm] = useState<Alarm | null>(null);
   const [isAlarmActive, setIsAlarmActive] = useState(true);
   
-  // Time update effect
+  // Time update effect with optimized interval for web
   useEffect(() => {
     // Use a single interval for both time update and colon blinking
     const interval = setInterval(() => {
       setCurrentTime(new Date());
       setShowColons(prev => !prev);
-    }, 1000);
+    }, Platform.OS === 'web' ? 1000 : 1000); // Same for now but can be adjusted
     
     return () => clearInterval(interval);
   }, []);
 
-  // Load alarms on initial mount
+  // Load alarms on initial mount (with debounce for slow devices)
   useEffect(() => {
-    loadAlarms();
+    const timer = setTimeout(() => {
+      loadAlarms();
+    }, 100); // Slight delay to allow UI to render first
+    
+    return () => clearTimeout(timer);
   }, []);
   
   // Find next alarm when alarms change
   useEffect(() => {
     if (alarms.length > 0) {
-      findNextAlarm();
+      // Debounce the calculation to avoid blocking the UI
+      const timerId = setTimeout(() => {
+        findNextAlarm();
+      }, 50);
+      
+      return () => clearTimeout(timerId);
     }
   }, [alarms]);
   
@@ -63,16 +147,20 @@ export default function ClockScreen() {
     }
   }, [selectedAlarm]);
   
-  // Reload alarms when screen comes into focus
+  // Reload alarms when screen comes into focus - optimized to reduce unnecessary reloads
   useFocusEffect(
     useCallback(() => {
-      loadAlarms();
-      return () => {};
+      const timerId = setTimeout(() => {
+        loadAlarms();
+      }, 300); // Larger delay on focus to avoid performance hit during navigation
+      
+      return () => clearTimeout(timerId);
     }, [])
   );
   
   // Load alarms from AsyncStorage
   const loadAlarms = useCallback(async () => {
+    perf.logRender('loadAlarms');
     try {
       const alarmsData = await AsyncStorage.getItem('alarms');
       if (alarmsData) {
@@ -98,6 +186,7 @@ export default function ClockScreen() {
   
   // Find the next alarm and calculate minutes until it
   const findNextAlarm = useCallback(() => {
+    perf.logRender('findNextAlarm');
     if (alarms.length === 0) {
       setNextAlarmMinutes(null);
       setSelectedAlarm(null);
@@ -187,8 +276,9 @@ export default function ClockScreen() {
   
   // Generate white lines for progress bar - memoized with deps array to prevent recreation
   const progressBarLines = useMemo(() => {
+    perf.logRender('progressBarLines');
     // Reduce the number of lines for better performance while maintaining visual appearance
-    const lineCount = Platform.OS === 'web' ? 30 : 60; // Fewer lines on web for better performance
+    const lineCount = Platform.OS === 'web' ? 15 : 30; // Even fewer lines on web for better performance
     const lines = [];
     for (let i = 0; i < lineCount; i++) {
       const isRed = i < lineCount/2;
@@ -199,8 +289,8 @@ export default function ClockScreen() {
             styles.progressLine, 
             { 
               backgroundColor: isRed ? '#ff5252' : '#a4e4a2',
-              width: Platform.OS === 'web' ? 2 : 1, // Slightly wider lines on web for fewer elements
-              marginHorizontal: Platform.OS === 'web' ? 2 : 1
+              width: Platform.OS === 'web' ? 3 : 2, // Wider lines on web for fewer elements
+              marginHorizontal: Platform.OS === 'web' ? 3 : 2
             }
           ]} 
         />
@@ -211,6 +301,7 @@ export default function ClockScreen() {
   
   // Get day abbreviations with current day highlighted
   const dayAbbreviations = useMemo(() => {
+    perf.logRender('dayAbbreviations');
     const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     const currentDay = currentTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const adjustedCurrentDay = currentDay === 0 ? 6 : currentDay - 1; // Adjust to match our array (0 = Monday)
@@ -240,6 +331,7 @@ export default function ClockScreen() {
   
   // Toggle alarm active state
   const toggleAlarmActive = useCallback(async (alarm: Alarm) => {
+    perf.logRender('toggleAlarmActive');
     try {
       console.log("Toggling alarm state for alarm ID:", alarm.id);
       
@@ -279,6 +371,7 @@ export default function ClockScreen() {
   
   // Delete alarm
   const deleteAlarm = useCallback((alarm: Alarm) => {
+    perf.logRender('deleteAlarm');
     console.log("Attempting to delete alarm ID:", alarm.id);
     
     Alert.alert(
@@ -340,74 +433,47 @@ export default function ClockScreen() {
     router.push('/(tabs)/alarm');
   }, [router]);
 
-  // Render the clock
+  // Render the clock - this is now using our memoized Clock component
   const renderClock = useCallback(() => {
     const { hours, minutes, seconds } = formatTime(currentTime);
-    
-    return (
-      <View style={styles.clockContainer}>
-        <Text style={styles.mainTime}>
-          {hours}
-          <Text style={[styles.colon, !showColons && styles.colonHidden]}>:</Text>
-          {minutes}
-          <Text style={[styles.seconds, !showColons && styles.colonHidden]}>:{seconds}</Text>
-        </Text>
-      </View>
-    );
+    return <Clock hours={hours} minutes={minutes} seconds={seconds} showColons={showColons} />;
   }, [currentTime, showColons, formatTime]);
 
-  // Render an individual alarm item
+  // Render alarm list item - using optimized memoized component
   const renderAlarmItem = useCallback(({ item }: { item: Alarm }) => {
     return (
-      <View style={styles.alarmItem}>
-        <View style={styles.alarmTimeContainer}>
-          <Text style={[styles.alarmTime, !item.isActive && styles.inactiveAlarmText]}>
-            {formatAlarmTime(item.time)}
-          </Text>
-          <TouchableOpacity 
-            style={styles.toggleButton}
-            onPress={() => toggleAlarmActive(item)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons 
-              name={item.isActive ? "play-circle" : "pause-circle"} 
-              size={32} 
-              color={item.isActive ? "#a4e4a2" : "#666"} 
-            />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.alarmDetailsContainer}>
-          <Text style={[styles.songTitle, !item.isActive && styles.inactiveAlarmText]}>
-            {item.label || "ALARM"}
-          </Text>
-          <Text style={styles.alarmDays}>{getFormattedDays(item)}</Text>
-        </View>
-        <TouchableOpacity 
-          style={styles.deleteButton} 
-          onPress={() => deleteAlarm(item)}
-          activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="trash-outline" size={20} color="#ff5252" />
-        </TouchableOpacity>
-      </View>
+      <AlarmItem 
+        item={item} 
+        onToggle={toggleAlarmActive} 
+        onDelete={deleteAlarm}
+        formatAlarmTime={formatAlarmTime}
+        getFormattedDays={getFormattedDays}
+      />
     );
-  }, [formatAlarmTime, toggleAlarmActive, getFormattedDays, deleteAlarm]);
+  }, [toggleAlarmActive, deleteAlarm, formatAlarmTime, getFormattedDays]);
+
+  // Empty list component optimized with useMemo
+  const EmptyListComponent = useMemo(() => (
+    <View style={styles.alarmBox}>
+      <Text style={styles.noAlarmText}>NO ALARMS SET</Text>
+    </View>
+  ), []);
+
+  // Optimization for list header component
+  const ListHeaderComponent = useMemo(() => (
+    <Text style={styles.sectionTitle}>ALARMS</Text>
+  ), []);
 
   // Render alarm list section
   const renderAlarmList = useCallback(() => {
+    perf.logRender('renderAlarmList');
     if (alarms.length === 0) {
-      return (
-        <View style={styles.alarmBox}>
-          <Text style={styles.noAlarmText}>NO ALARMS SET</Text>
-        </View>
-      );
+      return EmptyListComponent;
     }
     
     return (
       <View style={styles.alarmListContainer}>
-        <Text style={styles.sectionTitle}>ALARMS</Text>
+        {ListHeaderComponent}
         <FlatList
           data={alarms}
           renderItem={renderAlarmItem}
@@ -415,10 +481,17 @@ export default function ClockScreen() {
           style={styles.alarmList}
           contentContainerStyle={styles.alarmListContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={5}
+          maxToRenderPerBatch={3}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          getItemLayout={(data, index) => (
+            {length: 70, offset: 70 * index, index}
+          )}
         />
       </View>
     );
-  }, [alarms, renderAlarmItem]);
+  }, [alarms, renderAlarmItem, EmptyListComponent, ListHeaderComponent]);
 
   return (
     <SafeAreaView style={styles.container}>

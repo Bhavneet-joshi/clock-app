@@ -1,126 +1,133 @@
 import { useEffect } from 'react';
-import { InteractionManager, Platform } from 'react-native';
+import { Platform, InteractionManager, UIManager } from 'react-native';
 
 /**
- * Custom hook to apply various performance optimizations
+ * A hook that applies various performance optimizations
+ * for React Native applications, with special handling for web.
  */
 export function usePerformanceOptimizations() {
   useEffect(() => {
-    // Defer non-critical operations until after interactions
-    const task = InteractionManager.runAfterInteractions(() => {
-      // Any heavy initialization can go here
-      console.log('Performance optimizations applied');
-    });
+    console.log("Applying performance optimizations");
 
-    // Apply platform-specific optimizations
-    if (Platform.OS === 'web') {
-      // Web-specific optimizations
-      if (typeof window !== 'undefined') {
-        // Disable some expensive browser features in development
-        if (__DEV__) {
-          // Reduce console noise
-          const originalConsoleWarn = console.warn;
-          console.warn = (...args) => {
-            // Filter out common warnings that don't affect functionality
-            const warningText = args[0]?.toString() || '';
-            if (
-              warningText.includes('Animated:') ||
-              warningText.includes('componentWillReceiveProps') ||
-              warningText.includes('componentWillMount')
-            ) {
-              return;
-            }
-            originalConsoleWarn(...args);
-          };
+    // Error filtering to reduce console noise
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // Store original console methods
+      const originalConsoleError = console.error;
+      const originalConsoleWarn = console.warn;
+
+      // Filter out non-critical errors and warnings to reduce CPU overhead
+      console.error = (...args: any[]) => {
+        const errorMessage = args.length > 0 ? String(args[0]) : '';
+        
+        // Skip common React Native web warnings that aren't critical
+        if (
+          errorMessage.includes('shadow') || 
+          errorMessage.includes('pointerEvents') ||
+          errorMessage.includes('Cannot record touch') ||
+          errorMessage.includes('TouchBank')
+        ) {
+          // Silently ignore these errors in production
+          if (process.env.NODE_ENV !== 'production') {
+            // In development, log them as warnings instead
+            console.warn('[Filtered Error]:', ...args);
+          }
+          return;
         }
+        
+        // Pass through other errors
+        originalConsoleError.apply(console, args);
+      };
 
-        // Filter touch event errors regardless of dev/prod mode
-        const originalConsoleError = console.error;
-        console.error = (...args) => {
-          // Filter out touch event errors that are common in React Native Web
-          const errorText = args[0]?.toString() || '';
-          if (
-            errorText.includes('Cannot record touch end without a touch start') ||
-            errorText.includes('Cannot record touch move without a touch start')
-          ) {
-            return;
+      // Filter common warnings
+      console.warn = (...args: any[]) => {
+        const warnMessage = args.length > 0 ? String(args[0]) : '';
+        
+        // Skip common RN warnings
+        if (
+          warnMessage.includes('Reanimated') ||
+          warnMessage.includes('motion') ||
+          warnMessage.includes('preloaded') 
+        ) {
+          // Completely skip in production
+          if (process.env.NODE_ENV !== 'production') {
+            // In development, log with prefix for clarity
+            originalConsoleWarn.call(console, '[Low Priority]', ...args);
           }
-          originalConsoleError(...args);
-        };
-
-        // Apply production-specific optimizations
-        if (!__DEV__) {
-          // Disable debug logging in production
-          console.debug = () => {};
-          
-          // Add passive event listeners when possible for better touch performance
-          try {
-            // Test via a getter in the options object to see if passive is supported
-            let supportsPassive = false;
-            const opts = Object.defineProperty({}, 'passive', {
-              get: function() {
-                supportsPassive = true;
-                return true;
-              }
-            });
-            window.addEventListener('testPassive', null, opts);
-            window.removeEventListener('testPassive', null, opts);
-            
-            if (supportsPassive) {
-              const passiveOption = { passive: true };
-              // Use passive listeners for common scroll/touch events
-              document.addEventListener('touchstart', () => {}, passiveOption);
-              document.addEventListener('touchmove', () => {}, passiveOption);
-              document.addEventListener('wheel', () => {}, passiveOption);
-            }
-          } catch (e) {
-            // Do nothing if error occurs
-          }
-          
-          // Optimize image loading for web
-          if ('loading' in HTMLImageElement.prototype) {
-            document.querySelectorAll('img').forEach(img => {
-              img.loading = 'lazy';
-            });
-          }
-          
-          // Optimize DOM mutation
-          // This helps with React's frequent DOM updates
-          if (typeof window.requestAnimationFrame !== 'undefined') {
-            // Use a more efficient rendering cycle
-            let pendingRenders = [];
-            let isRenderScheduled = false;
-            
-            const batchRenders = () => {
-              const renders = pendingRenders;
-              pendingRenders = [];
-              isRenderScheduled = false;
-              
-              // Process all scheduled renders
-              renders.forEach(callback => callback());
-            };
-            
-            // Override requestAnimationFrame for more efficient batching
-            const originalRequestAnimationFrame = window.requestAnimationFrame;
-            window.requestAnimationFrame = (callback) => {
-              pendingRenders.push(callback);
-              
-              if (!isRenderScheduled) {
-                isRenderScheduled = true;
-                originalRequestAnimationFrame(batchRenders);
-              }
-              
-              // Return a dummy ID
-              return 0;
-            };
-          }
+          return;
         }
-      }
+        
+        // Pass through other warnings
+        originalConsoleWarn.apply(console, args);
+      };
+
+      // Clean up on unmount
+      return () => {
+        console.error = originalConsoleError;
+        console.warn = originalConsoleWarn;
+      };
     }
 
-    return () => {
-      // Clean up any performance-related tasks
-      task.cancel();
-    };
+    // Enable layout animation on Android
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+
+    // Optimize interaction batching for native platforms
+    if (Platform.OS !== 'web') {
+      // Schedule heavy computations to happen after interactions
+      const handle = InteractionManager.createInteractionHandle();
+      
+      // Clear after component mounts fully
+      setTimeout(() => {
+        InteractionManager.clearInteractionHandle(handle);
+      }, 500);
+    }
+
+    // Web-specific optimizations
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // Optimize animations and transitions
+      const style = document.createElement('style');
+      style.innerHTML = `
+        /* Performance optimizations for animations */
+        * {
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          -moz-backface-visibility: hidden;
+        }
+        
+        /* Force hardware acceleration for specific elements */
+        .rn-text, .rn-view {
+          transform: translateZ(0);
+          will-change: transform;
+        }
+        
+        /* Optimize repaints */
+        body {
+          overscroll-behavior: none;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Enhanced RAM usage management for longer app sessions
+      if ('memory' in window.performance) {
+        // Check memory usage periodically
+        const memoryInterval = setInterval(() => {
+          const memoryInfo = (performance as any).memory;
+          if (memoryInfo && memoryInfo.usedJSHeapSize > 200000000) { // 200MB
+            console.log('High memory usage detected, optimizing...');
+            
+            // Force garbage collection if possible (works in some browsers)
+            if (global.gc) {
+              global.gc();
+            }
+          }
+        }, 30000); // Check every 30 seconds
+        
+        return () => clearInterval(memoryInterval);
+      }
+    }
+    
+    // Apply additional performance optimizations based on the platform
+    console.log("Performance optimizations applied");
   }, []);
 } 

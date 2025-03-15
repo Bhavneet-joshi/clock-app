@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as Font from 'expo-font';
+import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,6 +22,9 @@ export default function AlarmScreen() {
   
   const hourListRef = useRef(null);
   const minuteListRef = useRef(null);
+
+  // Add performance monitoring
+  const perf = usePerformanceMonitor('AlarmScreen');
 
   // Load custom fonts
   useEffect(() => {
@@ -352,18 +356,25 @@ export default function AlarmScreen() {
               contentContainerStyle={styles.timeWheelList}
               style={styles.timeWheel}
               onMomentumScrollEnd={handleHourScrollEnd}
-              removeClippedSubviews={Platform.OS !== 'web'}
-              maxToRenderPerBatch={10}
-              windowSize={5}
-              initialNumToRender={24}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={5}
+              windowSize={3}
+              initialNumToRender={7}
               scrollEventThrottle={16}
               updateCellsBatchingPeriod={50}
-              shouldRasterizeIOS={Platform.OS === 'ios'}
-              renderToHardwareTextureAndroid={Platform.OS === 'android'}
+              shouldRasterizeIOS={true}
+              renderToHardwareTextureAndroid={true}
               onScrollToIndexFailed={(info) => {
+                console.log("Failed to scroll to hour index", info.index);
                 const wait = new Promise(resolve => setTimeout(resolve, 500));
                 wait.then(() => {
-                  hourListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                  if (hourListRef.current) {
+                    hourListRef.current.scrollToIndex({ 
+                      index: info.index, 
+                      animated: true,
+                      viewPosition: 0.5
+                    });
+                  }
                 });
               }}
             />
@@ -387,18 +398,25 @@ export default function AlarmScreen() {
               contentContainerStyle={styles.timeWheelList}
               style={styles.timeWheel}
               onMomentumScrollEnd={handleMinuteScrollEnd}
-              removeClippedSubviews={Platform.OS !== 'web'}
-              maxToRenderPerBatch={10}
-              windowSize={5}
-              initialNumToRender={60}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={5}
+              windowSize={3}
+              initialNumToRender={7}
               scrollEventThrottle={16}
               updateCellsBatchingPeriod={50}
-              shouldRasterizeIOS={Platform.OS === 'ios'}
-              renderToHardwareTextureAndroid={Platform.OS === 'android'}
+              shouldRasterizeIOS={true}
+              renderToHardwareTextureAndroid={true}
               onScrollToIndexFailed={(info) => {
+                console.log("Failed to scroll to minute index", info.index);
                 const wait = new Promise(resolve => setTimeout(resolve, 500));
                 wait.then(() => {
-                  minuteListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                  if (minuteListRef.current) {
+                    minuteListRef.current.scrollToIndex({ 
+                      index: info.index, 
+                      animated: true,
+                      viewPosition: 0.5
+                    });
+                  }
                 });
               }}
             />

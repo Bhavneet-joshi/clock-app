@@ -6,6 +6,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { styles } from '../../components/HomeStyles';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
+import { useAsyncStorageCache } from '../../hooks/useAsyncStorageCache';
+import VirtualizedList from '../../components/VirtualizedList';
+import { useWebWorker } from '../../hooks/useWebWorker';
 
 const { width } = Dimensions.get('window');
 
@@ -130,13 +133,12 @@ export default function ClockScreen() {
   
   // Find next alarm when alarms change
   useEffect(() => {
-    if (alarms.length > 0) {
-      // Debounce the calculation to avoid blocking the UI
-      const timerId = setTimeout(() => {
-        findNextAlarm();
-      }, 50);
-      
-      return () => clearTimeout(timerId);
+    if (alarms?.length > 0) {
+      // Use web worker for heavy calculation if available
+      findNextAlarmCompute();
+    } else {
+      setNextAlarmMinutes(null);
+      setSelectedAlarm(null);
     }
   }, [alarms]);
   
@@ -158,48 +160,22 @@ export default function ClockScreen() {
     }, [])
   );
   
-  // Load alarms from AsyncStorage
-  const loadAlarms = useCallback(async () => {
-    perf.logRender('loadAlarms');
-    try {
-      const alarmsData = await AsyncStorage.getItem('alarms');
-      if (alarmsData) {
-        const parsedAlarms = JSON.parse(alarmsData);
-        
-        // Add createdAt timestamp for any alarms that don't have it
-        const alarmsWithTimestamp = parsedAlarms.map((alarm: Alarm) => ({
-          ...alarm,
-          createdAt: alarm.createdAt || Date.now() // Use current time if no timestamp exists
-        }));
-        
-        // Sort alarms by creation time (most recent first)
-        const sortedAlarms = alarmsWithTimestamp.sort((a: Alarm, b: Alarm) => 
-          (b.createdAt || 0) - (a.createdAt || 0)
-        );
-        
-        setAlarms(sortedAlarms);
-      }
-    } catch (error) {
-      console.error('Error loading alarms:', error);
-    }
-  }, []);
-  
-  // Find the next alarm and calculate minutes until it
-  const findNextAlarm = useCallback(() => {
-    perf.logRender('findNextAlarm');
-    if (alarms.length === 0) {
-      setNextAlarmMinutes(null);
-      setSelectedAlarm(null);
-      return;
+  // Use the cached version of AsyncStorage
+  const { data: alarms, saveData: setAlarms, loadData: refreshAlarms } = useAsyncStorageCache('alarms', []);
+
+  // Setup web worker for alarm calculation
+  const nextAlarmWorkerFunction = (alarmsData: Alarm[]) => {
+    if (!alarmsData || alarmsData.length === 0) {
+      return { nextAlarmMinutes: null, selectedAlarm: null };
     }
 
     const now = new Date();
     const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
     
-    let closestAlarm: Alarm | null = null;
+    let closestAlarm = null;
     let minDiff = Infinity;
 
-    alarms.forEach(alarm => {
+    alarmsData.forEach(alarm => {
       if (!alarm.isActive) return;
       
       // Check if alarm is set for any day
@@ -235,19 +211,47 @@ export default function ClockScreen() {
       }
     });
 
-    if (closestAlarm) {
-      setSelectedAlarm(closestAlarm);
-      setNextAlarmMinutes(minDiff);
-      
-      // Update slider position based on minutes until alarm
-      const maxMinutes = 24 * 60; // 24 hours in minutes
-      const percentage = Math.min(100, Math.max(0, (minDiff / maxMinutes) * 100));
-      setSliderPosition(percentage);
-    } else {
-      setSelectedAlarm(null);
+    return { 
+      nextAlarmMinutes: closestAlarm ? minDiff : null, 
+      selectedAlarm: closestAlarm || null
+    };
+  };
+
+  // Setup the worker
+  const { compute: findNextAlarmCompute, isProcessing: isFindingNextAlarm } = useWebWorker(nextAlarmWorkerFunction, []);
+
+  // Update the findNextAlarm function to use web worker
+  const findNextAlarm = useCallback(async () => {
+    perf.logRender('findNextAlarm');
+    
+    if (!alarms || alarms.length === 0) {
       setNextAlarmMinutes(null);
+      setSelectedAlarm(null);
+      return;
     }
-  }, [alarms]);
+    
+    try {
+      const result = await findNextAlarmCompute(alarms);
+      
+      if (result.selectedAlarm) {
+        setSelectedAlarm(result.selectedAlarm);
+        setNextAlarmMinutes(result.nextAlarmMinutes);
+        
+        // Update slider position based on minutes until alarm
+        const maxMinutes = 24 * 60; // 24 hours in minutes
+        const percentage = Math.min(100, Math.max(0, ((result.nextAlarmMinutes || 0) / maxMinutes) * 100));
+        setSliderPosition(percentage);
+      } else {
+        setSelectedAlarm(null);
+        setNextAlarmMinutes(null);
+      }
+    } catch (error) {
+      console.error('Error finding next alarm:', error);
+      // Fallback to simpler calculation
+      setNextAlarmMinutes(null);
+      setSelectedAlarm(null);
+    }
+  }, [alarms, findNextAlarmCompute]);
   
   // Format time for display
   const formatTime = useCallback((date: Date) => {
@@ -467,27 +471,27 @@ export default function ClockScreen() {
   // Render alarm list section
   const renderAlarmList = useCallback(() => {
     perf.logRender('renderAlarmList');
-    if (alarms.length === 0) {
+    if (!alarms || alarms.length === 0) {
       return EmptyListComponent;
     }
     
     return (
       <View style={styles.alarmListContainer}>
         {ListHeaderComponent}
-        <FlatList
+        <VirtualizedList
           data={alarms}
           renderItem={renderAlarmItem}
           keyExtractor={(item) => item.id}
           style={styles.alarmList}
           contentContainerStyle={styles.alarmListContent}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={5}
-          maxToRenderPerBatch={3}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS !== 'web'}
-          getItemLayout={(data, index) => (
-            {length: 70, offset: 70 * index, index}
-          )}
+          itemHeight={70} // Fixed item height for virtualization
+          onMomentumScrollEnd={(e) => {
+            // Any scroll end logic here
+          }}
+          onScrollToIndexFailed={(info) => {
+            console.warn('Failed to scroll to index:', info);
+          }}
         />
       </View>
     );

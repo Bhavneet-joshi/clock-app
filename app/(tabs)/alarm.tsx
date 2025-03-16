@@ -5,6 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as Font from 'expo-font';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
+import { useAsyncStorageCache } from '../../hooks/useAsyncStorageCache';
+import VirtualizedList from '../../components/VirtualizedList';
 
 const { width, height } = Dimensions.get('window');
 
@@ -124,8 +126,11 @@ export default function AlarmScreen() {
   }, []);
 
   // Save alarm
+  const { data: existingAlarms, saveData: saveAlarms } = useAsyncStorageCache('alarms', []);
+
   const saveAlarm = useCallback(async () => {
     try {
+      perf.logRender('saveAlarm');
       console.log("Saving alarm with time:", `${selectedTime.hour}:${selectedTime.minute}`);
       
       // Create new alarm object
@@ -144,26 +149,17 @@ export default function AlarmScreen() {
       // Log the new alarm object
       console.log("New alarm object:", JSON.stringify(newAlarm));
       
-      // Get existing alarms
-      const existingAlarmsJson = await AsyncStorage.getItem('alarms');
-      let existingAlarms = [];
+      // Use cached alarms instead of direct AsyncStorage access
+      let updatedAlarms = [];
       
-      if (existingAlarmsJson) {
-        try {
-          existingAlarms = JSON.parse(existingAlarmsJson);
-          console.log("Found existing alarms:", existingAlarms.length);
-        } catch (e) {
-          console.error('Error parsing existing alarms:', e);
-          // Initialize empty array if parsing fails
-          existingAlarms = [];
-        }
+      if (existingAlarms && Array.isArray(existingAlarms)) {
+        updatedAlarms = [...existingAlarms, newAlarm];
+      } else {
+        updatedAlarms = [newAlarm];
       }
       
-      // Add new alarm
-      const updatedAlarms = [...existingAlarms, newAlarm];
-      
-      // Save updated alarms
-      await AsyncStorage.setItem('alarms', JSON.stringify(updatedAlarms));
+      // Save updated alarms with our optimized storage hook
+      await saveAlarms(updatedAlarms);
       console.log("Successfully saved", updatedAlarms.length, "alarms");
       
       // Reset form
@@ -185,10 +181,10 @@ export default function AlarmScreen() {
       // Show more detailed error message to help diagnose the issue
       Alert.alert(
         'Error', 
-        `Failed to save alarm: ${error.message || 'Unknown error'}. Please try again.`
+        `Failed to save alarm: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`
       );
     }
-  }, [selectedTime, activeDays, alarmSound, snoozeTime, repeatOption, alarmLabel, router]);
+  }, [selectedTime, activeDays, alarmSound, snoozeTime, repeatOption, alarmLabel, router, existingAlarms, saveAlarms]);
 
   // Format time as HH:MM
   const formatTime = useCallback((date) => {
@@ -339,31 +335,19 @@ export default function AlarmScreen() {
           <View style={styles.timeWheelGradientTop} />
           
           <View style={styles.timeWheelsRow}>
-            <FlatList
+            <VirtualizedList
               ref={hourListRef}
               data={hours}
               renderItem={renderHourItem}
               keyExtractor={(item) => `hour-${item}`}
               showsVerticalScrollIndicator={false}
+              itemHeight={60}
               snapToInterval={60}
               decelerationRate="fast"
               initialScrollIndex={fontsLoaded ? getInitialHourIndex() : 0}
-              getItemLayout={(data, index) => ({
-                length: 60,
-                offset: 60 * index,
-                index,
-              })}
-              contentContainerStyle={styles.timeWheelList}
               style={styles.timeWheel}
+              contentContainerStyle={styles.timeWheelList}
               onMomentumScrollEnd={handleHourScrollEnd}
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={5}
-              windowSize={3}
-              initialNumToRender={7}
-              scrollEventThrottle={16}
-              updateCellsBatchingPeriod={50}
-              shouldRasterizeIOS={true}
-              renderToHardwareTextureAndroid={true}
               onScrollToIndexFailed={(info) => {
                 console.log("Failed to scroll to hour index", info.index);
                 const wait = new Promise(resolve => setTimeout(resolve, 500));
@@ -381,31 +365,19 @@ export default function AlarmScreen() {
             
             <Text style={styles.timeWheelSeparator}>:</Text>
             
-            <FlatList
+            <VirtualizedList
               ref={minuteListRef}
               data={minutes}
               renderItem={renderMinuteItem}
               keyExtractor={(item) => `minute-${item}`}
               showsVerticalScrollIndicator={false}
+              itemHeight={60}
               snapToInterval={60}
               decelerationRate="fast"
               initialScrollIndex={fontsLoaded ? getInitialMinuteIndex() : 0}
-              getItemLayout={(data, index) => ({
-                length: 60,
-                offset: 60 * index,
-                index,
-              })}
-              contentContainerStyle={styles.timeWheelList}
               style={styles.timeWheel}
+              contentContainerStyle={styles.timeWheelList}
               onMomentumScrollEnd={handleMinuteScrollEnd}
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={5}
-              windowSize={3}
-              initialNumToRender={7}
-              scrollEventThrottle={16}
-              updateCellsBatchingPeriod={50}
-              shouldRasterizeIOS={true}
-              renderToHardwareTextureAndroid={true}
               onScrollToIndexFailed={(info) => {
                 console.log("Failed to scroll to minute index", info.index);
                 const wait = new Promise(resolve => setTimeout(resolve, 500));

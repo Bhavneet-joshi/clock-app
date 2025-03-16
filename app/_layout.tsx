@@ -13,6 +13,7 @@ import { useReducedMotionConfig } from '@/hooks/useReducedMotionConfig';
 import { usePerformanceOptimizations } from '@/hooks/usePerformanceOptimizations';
 import useIconFonts from '@/hooks/useIconFonts';
 import TouchCapture from '@/components/TouchCapture';
+import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -77,6 +78,16 @@ export default function RootLayout() {
   
   // Apply performance optimizations
   usePerformanceOptimizations();
+  
+  // Monitor memory usage
+  useMemoryMonitor({
+    threshold: 150, // Lower threshold for better performance
+    interval: 20000, // Check more frequently
+    onHighUsage: () => {
+      console.log('Performing additional cleanup due to high memory usage');
+      // Perform any app-specific cleanup here
+    }
+  });
 
   // Memoize the theme to prevent unnecessary re-renders
   const theme = useMemo(() => 

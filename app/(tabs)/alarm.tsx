@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Platform, StatusBar, ScrollView, Alert, FlatList, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Platform, StatusBar, ScrollView, Alert, FlatList, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -10,17 +10,22 @@ import VirtualizedList from '../../components/VirtualizedList';
 
 const { width, height } = Dimensions.get('window');
 
+const INITIAL_HOUR = new Date().getHours().toString().padStart(2, '0');
+const INITIAL_MINUTE = new Date().getMinutes().toString().padStart(2, '0');
+
 export default function AlarmScreen() {
   const router = useRouter();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showColons, setShowColons] = useState(true);
-  const [selectedTime, setSelectedTime] = useState({ hour: '09', minute: '50' });
+  const [selectedTime, setSelectedTime] = useState({ hour: INITIAL_HOUR, minute: INITIAL_MINUTE });
   const [activeDays, setActiveDays] = useState([false, false, false, true, false, false, false]);
   const [alarmSound, setAlarmSound] = useState('WAKE UP');
   const [snoozeTime, setSnoozeTime] = useState('EVERY 10 MIN');
   const [repeatOption, setRepeatOption] = useState('NO');
   const [alarmLabel, setAlarmLabel] = useState('NEW ALARM');
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   const hourListRef = useRef(null);
   const minuteListRef = useRef(null);
@@ -28,35 +33,57 @@ export default function AlarmScreen() {
   // Add performance monitoring
   const perf = usePerformanceMonitor('AlarmScreen');
 
-  // Load custom fonts
+  // Load custom fonts with better error handling
   useEffect(() => {
     async function loadFonts() {
       try {
-        // Use renamed font file with no spaces or parentheses
-        await Font.loadAsync({
-          'digital-mono': Platform.OS === 'web'
-            ? require('../../fonts/digital7mono.ttf')
-            : require('../../assets/fonts/digital7mono.ttf'),
-          // Also load Ionicons
-          ...Ionicons.font,
-        });
+        setIsLoading(true);
+        setError(null);
+        
+        // Load both custom fonts and Ionicons in parallel for better performance
+        await Promise.all([
+          Font.loadAsync({
+            'digital-mono': require('../../assets/fonts/digital7mono.ttf'),
+          }),
+          Font.loadAsync(Ionicons.font)
+        ]);
+        
+        console.log('All fonts and icons loaded successfully');
         setFontsLoaded(true);
+        setIsLoading(false);
       } catch (error) {
-        console.error('Error loading fonts from primary location, trying fallback:', error);
-        // Try fallback with renamed file
+        console.error('Error loading fonts:', error);
+        
+        // Try loading separately to identify which one failed
         try {
+          // First try loading Ionicons
+          await Font.loadAsync(Ionicons.font);
+          console.log('Ionicons loaded successfully');
+          
+          // Then try loading custom font with fallback paths
           await Font.loadAsync({
-            'digital-mono': require('../../fonts/digital7mono.ttf'),
-            // Also load Ionicons in fallback
-            ...Ionicons.font,
+            'digital-mono': Platform.OS === 'web' 
+              ? require('../../fonts/digital7mono.ttf')
+              : require('../../assets/fonts/digital7mono.ttf'),
           });
+          
+          console.log('Fonts loaded successfully from fallback');
           setFontsLoaded(true);
         } catch (fallbackError) {
-          console.error('Failed to load fonts from fallback location:', fallbackError);
+          console.error('Failed to load fonts from fallback:', fallbackError);
+          setError('Failed to load fonts. Please check your internet connection and try again.');
         }
+        setIsLoading(false);
       }
     }
+    
     loadFonts();
+
+    return () => {
+      setFontsLoaded(false);
+      setIsLoading(false);
+      setError(null);
+    };
   }, []);
 
   // Generate hours and minutes for the time picker wheels
@@ -75,6 +102,43 @@ export default function AlarmScreen() {
     }
     return result;
   }, []);
+
+  // Show loading screen with better visibility and fallback icons
+  if (isLoading || !fontsLoaded) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#a4e4a2" />
+        <Text style={[styles.loadingText, { 
+          fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
+          marginTop: 10 
+        }]}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={[styles.errorText, { fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }]}>
+          {error}
+        </Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => {
+            setIsLoading(true);
+            setError(null);
+            loadFonts();
+          }}
+        >
+          <Text style={[styles.retryButtonText, { fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }]}>
+            RETRY
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // Update time every second
   useEffect(() => {
@@ -233,7 +297,11 @@ export default function AlarmScreen() {
         ]}
         onPress={() => {
           setSelectedTime(prev => ({ ...prev, hour: item }));
-          hourListRef.current?.scrollToIndex({ index, animated: true });
+          hourListRef.current?.scrollToIndex({ 
+            index, 
+            animated: true,
+            viewPosition: 0.5
+          });
         }}
       >
         <Text 
@@ -248,7 +316,7 @@ export default function AlarmScreen() {
     );
   }, [selectedTime.hour]);
 
-  // Memoize the minute item renderer to prevent recreating it on each render
+  // Memoize the minute item renderer
   const renderMinuteItem = useCallback(({ item, index }) => {
     const isSelected = item === selectedTime.minute;
     
@@ -260,7 +328,11 @@ export default function AlarmScreen() {
         ]}
         onPress={() => {
           setSelectedTime(prev => ({ ...prev, minute: item }));
-          minuteListRef.current?.scrollToIndex({ index, animated: true });
+          minuteListRef.current?.scrollToIndex({ 
+            index, 
+            animated: true,
+            viewPosition: 0.5
+          });
         }}
       >
         <Text 
@@ -275,40 +347,85 @@ export default function AlarmScreen() {
     );
   }, [selectedTime.minute]);
 
-  // Get initial scroll indexes
-  const getInitialHourIndex = useCallback(() => {
-    return hours.findIndex(h => h === selectedTime.hour);
-  }, [hours, selectedTime.hour]);
+  // Memoize the getItemLayout functions for better performance
+  const getHourItemLayout = useCallback((data, index) => ({
+    length: 60,
+    offset: 60 * index,
+    index,
+  }), []);
 
-  const getInitialMinuteIndex = useCallback(() => {
-    return minutes.findIndex(m => m === selectedTime.minute);
-  }, [minutes, selectedTime.minute]);
+  const getMinuteItemLayout = useCallback((data, index) => ({
+    length: 60,
+    offset: 60 * index,
+    index,
+  }), []);
 
-  // Handle scroll end for hour wheel
+  // Handle scroll end for hours
   const handleHourScrollEnd = useCallback((event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const index = Math.round(offsetY / 60);
-    if (index >= 0 && index < hours.length) {
-      setSelectedTime(prev => ({ ...prev, hour: hours[index] }));
+    const hour = hours[index];
+    if (hour) {
+      setSelectedTime(prev => ({ ...prev, hour }));
     }
   }, [hours]);
 
-  // Handle scroll end for minute wheel
+  // Handle scroll end for minutes
   const handleMinuteScrollEnd = useCallback((event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const index = Math.round(offsetY / 60);
-    if (index >= 0 && index < minutes.length) {
-      setSelectedTime(prev => ({ ...prev, minute: minutes[index] }));
+    const minute = minutes[index];
+    if (minute) {
+      setSelectedTime(prev => ({ ...prev, minute }));
     }
   }, [minutes]);
 
-  if (!fontsLoaded) {
+  // Render time picker wheels
+  const renderTimePicker = useMemo(() => {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={styles.timePickerContainer}>
+        <VirtualizedList
+          ref={hourListRef}
+          data={hours}
+          renderItem={renderHourItem}
+          keyExtractor={(item) => item}
+          getItemLayout={getHourItemLayout}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={60}
+          decelerationRate="fast"
+          onMomentumScrollEnd={handleHourScrollEnd}
+          initialScrollIndex={hours.indexOf(selectedTime.hour)}
+          style={styles.timeWheel}
+          contentContainerStyle={styles.timeWheelContent}
+          ListHeaderComponent={<View style={styles.timeWheelPadding} />}
+          ListFooterComponent={<View style={styles.timeWheelPadding} />}
+          onScrollToIndexFailed={(info) => {
+            console.warn('Failed to scroll to hour index:', info);
+          }}
+        />
+        <Text style={styles.timeWheelSeparator}>:</Text>
+        <VirtualizedList
+          ref={minuteListRef}
+          data={minutes}
+          renderItem={renderMinuteItem}
+          keyExtractor={(item) => item}
+          getItemLayout={getMinuteItemLayout}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={60}
+          decelerationRate="fast"
+          onMomentumScrollEnd={handleMinuteScrollEnd}
+          initialScrollIndex={minutes.indexOf(selectedTime.minute)}
+          style={styles.timeWheel}
+          contentContainerStyle={styles.timeWheelContent}
+          ListHeaderComponent={<View style={styles.timeWheelPadding} />}
+          ListFooterComponent={<View style={styles.timeWheelPadding} />}
+          onScrollToIndexFailed={(info) => {
+            console.warn('Failed to scroll to minute index:', info);
+          }}
+        />
       </View>
     );
-  }
+  }, [hours, minutes, selectedTime, renderHourItem, renderMinuteItem]);
 
   return (
     <View style={styles.container}>
@@ -330,79 +447,13 @@ export default function AlarmScreen() {
       </View>
       
       {/* Time picker wheels */}
-      <View style={styles.timePickerContainer}>
-        <View style={styles.timeWheelContainer}>
-          <View style={styles.timeWheelGradientTop} />
-          
-          <View style={styles.timeWheelsRow}>
-            <VirtualizedList
-              ref={hourListRef}
-              data={hours}
-              renderItem={renderHourItem}
-              keyExtractor={(item) => `hour-${item}`}
-              showsVerticalScrollIndicator={false}
-              itemHeight={60}
-              snapToInterval={60}
-              decelerationRate="fast"
-              initialScrollIndex={fontsLoaded ? getInitialHourIndex() : 0}
-              style={styles.timeWheel}
-              contentContainerStyle={styles.timeWheelList}
-              onMomentumScrollEnd={handleHourScrollEnd}
-              onScrollToIndexFailed={(info) => {
-                console.log("Failed to scroll to hour index", info.index);
-                const wait = new Promise(resolve => setTimeout(resolve, 500));
-                wait.then(() => {
-                  if (hourListRef.current) {
-                    hourListRef.current.scrollToIndex({ 
-                      index: info.index, 
-                      animated: true,
-                      viewPosition: 0.5
-                    });
-                  }
-                });
-              }}
-            />
-            
-            <Text style={styles.timeWheelSeparator}>:</Text>
-            
-            <VirtualizedList
-              ref={minuteListRef}
-              data={minutes}
-              renderItem={renderMinuteItem}
-              keyExtractor={(item) => `minute-${item}`}
-              showsVerticalScrollIndicator={false}
-              itemHeight={60}
-              snapToInterval={60}
-              decelerationRate="fast"
-              initialScrollIndex={fontsLoaded ? getInitialMinuteIndex() : 0}
-              style={styles.timeWheel}
-              contentContainerStyle={styles.timeWheelList}
-              onMomentumScrollEnd={handleMinuteScrollEnd}
-              onScrollToIndexFailed={(info) => {
-                console.log("Failed to scroll to minute index", info.index);
-                const wait = new Promise(resolve => setTimeout(resolve, 500));
-                wait.then(() => {
-                  if (minuteListRef.current) {
-                    minuteListRef.current.scrollToIndex({ 
-                      index: info.index, 
-                      animated: true,
-                      viewPosition: 0.5
-                    });
-                  }
-                });
-              }}
-            />
-          </View>
-          
-          <View style={styles.timeWheelGradientBottom} />
-        </View>
-        
-        {/* Current selected time display */}
-        <View style={styles.selectedTimeContainer}>
-          <Text style={styles.selectedTimeText}>
-            {selectedTime.hour}:{selectedTime.minute}
-          </Text>
-        </View>
+      {renderTimePicker}
+      
+      {/* Current selected time display */}
+      <View style={styles.selectedTimeContainer}>
+        <Text style={styles.selectedTimeText}>
+          {selectedTime.hour}:{selectedTime.minute}
+        </Text>
       </View>
       
       {/* Day selection */}
@@ -413,7 +464,12 @@ export default function AlarmScreen() {
       <View style={styles.functionContainer}>
         <View style={styles.functionButtonGroup}>
           <TouchableOpacity style={styles.functionIconButton} onPress={cycleSound}>
-            <Ionicons name="musical-note-outline" size={24} color="#a4e4a2" />
+            <Ionicons 
+              name="musical-note-outline" 
+              size={24} 
+              color="#a4e4a2" 
+              style={styles.functionIcon}
+            />
           </TouchableOpacity>
           <View style={styles.functionTextContainer}>
             <Text style={styles.functionTitle}>SOUND</Text>
@@ -423,7 +479,12 @@ export default function AlarmScreen() {
         
         <View style={styles.functionButtonGroup}>
           <TouchableOpacity style={styles.functionIconButton} onPress={cycleSnooze}>
-            <Ionicons name="alarm-outline" size={24} color="#a4e4a2" />
+            <Ionicons 
+              name="alarm-outline" 
+              size={24} 
+              color="#a4e4a2" 
+              style={styles.functionIcon}
+            />
           </TouchableOpacity>
           <View style={styles.functionTextContainer}>
             <Text style={styles.functionTitle}>SNOOZE</Text>
@@ -433,7 +494,12 @@ export default function AlarmScreen() {
         
         <View style={styles.functionButtonGroup}>
           <TouchableOpacity style={styles.functionIconButton} onPress={cycleRepeat}>
-            <Ionicons name="repeat-outline" size={24} color="#a4e4a2" />
+            <Ionicons 
+              name="repeat-outline" 
+              size={24} 
+              color="#a4e4a2" 
+              style={styles.functionIcon}
+            />
           </TouchableOpacity>
           <View style={styles.functionTextContainer}>
             <Text style={styles.functionTitle}>REPEAT</Text>
@@ -445,13 +511,23 @@ export default function AlarmScreen() {
       {/* Bottom controls */}
       <View style={styles.bottomControls}>
         <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
-          <Ionicons name="close" size={24} color="#a4e4a2" />
+          <Ionicons 
+            name="close" 
+            size={24} 
+            color="#a4e4a2" 
+            style={styles.functionIcon}
+          />
         </TouchableOpacity>
         
         <Text style={styles.controlsText}>CHOOSE TIME</Text>
         
         <TouchableOpacity style={styles.confirmButton} onPress={saveAlarm}>
-          <Ionicons name="checkmark" size={24} color="#000" />
+          <Ionicons 
+            name="checkmark" 
+            size={24} 
+            color="#000" 
+            style={styles.functionIcon}
+          />
         </TouchableOpacity>
       </View>
       
@@ -514,73 +590,47 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   timePickerContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  timeWheelContainer: {
-    height: 300,
-    width: '100%',
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timeWheelsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    height: 300,
+    alignItems: 'center',
+    height: 180,
+    marginVertical: 20,
   },
   timeWheel: {
-    height: 300,
-    width: width * 0.3,
+    height: 180,
+    width: 80,
   },
-  timeWheelList: {
-    paddingVertical: 120,
+  timeWheelContent: {
+    paddingVertical: 60,
+  },
+  timeWheelPadding: {
+    height: 60,
   },
   timeWheelItem: {
     height: 60,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   selectedTimeWheelItem: {
-    // No background color for selected item to match the design
+    backgroundColor: 'rgba(164, 228, 162, 0.1)',
   },
   timeWheelText: {
-    fontSize: 36,
-    fontFamily: 'digital-mono',
+    fontFamily: Platform.select({ web: 'monospace', default: 'digital-mono' }),
+    fontSize: 24,
+    color: '#666',
   },
   selectedTimeWheelText: {
     color: '#a4e4a2',
-    fontSize: 42,
+    fontSize: 32,
   },
   dimmedTimeWheelText: {
-    color: '#333',
+    color: '#666',
   },
   timeWheelSeparator: {
+    fontFamily: Platform.select({ web: 'monospace', default: 'digital-mono' }),
+    fontSize: 32,
     color: '#a4e4a2',
-    fontSize: 42,
-    fontFamily: 'digital-mono',
     marginHorizontal: 10,
-  },
-  timeWheelGradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: '#000',
-    opacity: 0.9,
-    zIndex: 1,
-  },
-  timeWheelGradientBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: '#000',
-    opacity: 0.9,
-    zIndex: 1,
   },
   selectedTimeContainer: {
     backgroundColor: 'rgba(164, 228, 162, 0.2)',
@@ -640,6 +690,18 @@ const styles = StyleSheet.create({
   },
   functionIconButton: {
     marginBottom: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(164, 228, 162, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  functionIcon: {
+    width: 24,
+    height: 24,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   functionTextContainer: {
     alignItems: 'center',
@@ -670,6 +732,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(164, 228, 162, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   confirmButton: {
     width: 50,
@@ -678,6 +745,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#a4e4a2',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   controlsText: {
     color: '#a4e4a2',
@@ -690,5 +762,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#a4e4a2',
     borderRadius: 2.5,
     alignSelf: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+  },
+  loadingText: {
+    color: '#a4e4a2',
+    fontSize: 18,
+    marginTop: 10,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    padding: 20,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#a4e4a2',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: '#1a1a1a',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 }); 

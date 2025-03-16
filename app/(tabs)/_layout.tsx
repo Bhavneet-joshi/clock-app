@@ -3,16 +3,12 @@ import { Tabs } from 'expo-router';
 import { Text, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Lazy load each tab screen
-const LazyComponent = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={
-    <View style={styles.loader}>
-      <ActivityIndicator size="large" color="#a4e4a2" />
-      <Text style={styles.loaderText}>Loading...</Text>
-    </View>
-  }>
-    {children}
-  </Suspense>
+// Create a loader component for tab suspense
+const TabLoader = () => (
+  <View style={styles.loader}>
+    <ActivityIndicator size="large" color="#a4e4a2" />
+    <Text style={styles.loaderText}>Loading...</Text>
+  </View>
 );
 
 export default function TabLayout() {
@@ -38,8 +34,6 @@ export default function TabLayout() {
           title: 'CLOCK',
           tabBarIcon: ({ color }) => <Ionicons name="time-outline" size={28} color={color} />,
         }}
-        // Apply LazyComponent
-        children={(props) => <LazyComponent>{props.children}</LazyComponent>}
       />
       <Tabs.Screen
         name="alarm"
@@ -47,8 +41,6 @@ export default function TabLayout() {
           title: 'ALARM',
           tabBarIcon: ({ color }) => <Ionicons name="alarm-outline" size={28} color={color} />,
         }}
-        // Apply LazyComponent
-        children={(props) => <LazyComponent>{props.children}</LazyComponent>}
       />
       <Tabs.Screen
         name="timer"
@@ -56,8 +48,6 @@ export default function TabLayout() {
           title: 'TIMER',
           tabBarIcon: ({ color }) => <Ionicons name="timer-outline" size={28} color={color} />,
         }}
-        // Apply LazyComponent
-        children={(props) => <LazyComponent>{props.children}</LazyComponent>}
       />
       <Tabs.Screen
         name="stopwatch"
@@ -65,8 +55,6 @@ export default function TabLayout() {
           title: 'STOPWATCH',
           tabBarIcon: ({ color }) => <Ionicons name="stopwatch-outline" size={28} color={color} />,
         }}
-        // Apply LazyComponent
-        children={(props) => <LazyComponent>{props.children}</LazyComponent>}
       />
     </Tabs>
   );

@@ -107,61 +107,11 @@ export default function ClockScreen() {
   const [nextAlarmMinutes, setNextAlarmMinutes] = useState<number | null>(null);
   const [sliderPosition, setSliderPosition] = useState(30);
   const [activeDays, setActiveDays] = useState([false, false, false, true, false, false, false]);
-  const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [selectedAlarm, setSelectedAlarm] = useState<Alarm | null>(null);
   const [isAlarmActive, setIsAlarmActive] = useState(true);
   
-  // Time update effect with optimized interval for web
-  useEffect(() => {
-    // Use a single interval for both time update and colon blinking
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-      setShowColons(prev => !prev);
-    }, Platform.OS === 'web' ? 1000 : 1000); // Same for now but can be adjusted
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Load alarms on initial mount (with debounce for slow devices)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadAlarms();
-    }, 100); // Slight delay to allow UI to render first
-    
-    return () => clearTimeout(timer);
-  }, []);
-  
-  // Find next alarm when alarms change
-  useEffect(() => {
-    if (alarms?.length > 0) {
-      // Use web worker for heavy calculation if available
-      findNextAlarmCompute();
-    } else {
-      setNextAlarmMinutes(null);
-      setSelectedAlarm(null);
-    }
-  }, [alarms]);
-  
-  // Update isAlarmActive when selectedAlarm changes
-  useEffect(() => {
-    if (selectedAlarm) {
-      setIsAlarmActive(selectedAlarm.isActive);
-    }
-  }, [selectedAlarm]);
-  
-  // Reload alarms when screen comes into focus - optimized to reduce unnecessary reloads
-  useFocusEffect(
-    useCallback(() => {
-      const timerId = setTimeout(() => {
-        loadAlarms();
-      }, 300); // Larger delay on focus to avoid performance hit during navigation
-      
-      return () => clearTimeout(timerId);
-    }, [])
-  );
-  
   // Use the cached version of AsyncStorage
-  const { data: alarms, saveData: setAlarms, loadData: refreshAlarms } = useAsyncStorageCache('alarms', []);
+  const { data: cachedAlarms, saveData: saveCachedAlarms, loadData: refreshAlarms } = useAsyncStorageCache('alarms', []);
 
   // Setup web worker for alarm calculation
   const nextAlarmWorkerFunction = (alarmsData: Alarm[]) => {
@@ -170,7 +120,7 @@ export default function ClockScreen() {
     }
 
     const now = new Date();
-    const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const today = now.getDay();
     
     let closestAlarm = null;
     let minDiff = Infinity;
@@ -178,30 +128,25 @@ export default function ClockScreen() {
     alarmsData.forEach(alarm => {
       if (!alarm.isActive) return;
       
-      // Check if alarm is set for any day
       if (!alarm.days.some(day => day)) return;
       
       const [hours, minutes] = alarm.time.split(':').map(Number);
       
-      // Calculate time difference for each active day
       for (let i = 0; i < 7; i++) {
         if (!alarm.days[i]) continue;
         
-        // Calculate days difference (0-6)
         let dayDiff = i - today;
-        if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
+        if (dayDiff < 0) dayDiff += 7;
         
-        // If it's today, check if the time has passed
         if (dayDiff === 0) {
           const alarmTime = new Date();
           alarmTime.setHours(hours, minutes, 0, 0);
           
           if (alarmTime <= now) {
-            dayDiff = 7; // Move to next week
+            dayDiff = 7;
           }
         }
         
-        // Calculate total minutes difference
         const totalMinutes = dayDiff * 24 * 60 + hours * 60 + minutes - (now.getHours() * 60 + now.getMinutes());
         
         if (totalMinutes < minDiff) {
@@ -220,25 +165,24 @@ export default function ClockScreen() {
   // Setup the worker
   const { compute: findNextAlarmCompute, isProcessing: isFindingNextAlarm } = useWebWorker(nextAlarmWorkerFunction, []);
 
-  // Update the findNextAlarm function to use web worker
+  // Define findNextAlarm before it's used in useEffect
   const findNextAlarm = useCallback(async () => {
     perf.logRender('findNextAlarm');
     
-    if (!alarms || alarms.length === 0) {
+    if (!cachedAlarms || cachedAlarms.length === 0) {
       setNextAlarmMinutes(null);
       setSelectedAlarm(null);
       return;
     }
     
     try {
-      const result = await findNextAlarmCompute(alarms);
+      const result = await findNextAlarmCompute(cachedAlarms);
       
       if (result.selectedAlarm) {
         setSelectedAlarm(result.selectedAlarm);
         setNextAlarmMinutes(result.nextAlarmMinutes);
         
-        // Update slider position based on minutes until alarm
-        const maxMinutes = 24 * 60; // 24 hours in minutes
+        const maxMinutes = 24 * 60;
         const percentage = Math.min(100, Math.max(0, ((result.nextAlarmMinutes || 0) / maxMinutes) * 100));
         setSliderPosition(percentage);
       } else {
@@ -247,11 +191,62 @@ export default function ClockScreen() {
       }
     } catch (error) {
       console.error('Error finding next alarm:', error);
-      // Fallback to simpler calculation
       setNextAlarmMinutes(null);
       setSelectedAlarm(null);
     }
-  }, [alarms, findNextAlarmCompute]);
+  }, [cachedAlarms, findNextAlarmCompute, perf]);
+
+  // Update loadAlarms function
+  const loadAlarms = useCallback(async () => {
+    refreshAlarms();
+  }, [refreshAlarms]);
+  
+  // Time update effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+      setShowColons(prev => !prev);
+    }, Platform.OS === 'web' ? 1000 : 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Load alarms on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadAlarms();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [loadAlarms]);
+  
+  // Find next alarm when alarms change
+  useEffect(() => {
+    if (cachedAlarms?.length > 0) {
+      findNextAlarm();
+    } else {
+      setNextAlarmMinutes(null);
+      setSelectedAlarm(null);
+    }
+  }, [cachedAlarms, findNextAlarm]);
+  
+  // Update isAlarmActive when selectedAlarm changes
+  useEffect(() => {
+    if (selectedAlarm) {
+      setIsAlarmActive(selectedAlarm.isActive);
+    }
+  }, [selectedAlarm]);
+  
+  // Reload alarms when screen comes into focus - optimized to reduce unnecessary reloads
+  useFocusEffect(
+    useCallback(() => {
+      const timerId = setTimeout(() => {
+        loadAlarms();
+      }, 300); // Larger delay on focus to avoid performance hit during navigation
+      
+      return () => clearTimeout(timerId);
+    }, [loadAlarms])
+  );
   
   // Format time for display
   const formatTime = useCallback((date: Date) => {
@@ -344,34 +339,25 @@ export default function ClockScreen() {
       console.log("Setting alarm active state to:", newIsActive);
       
       // Update the alarm in the alarms array
-      const updatedAlarms = alarms.map(a => 
+      const updatedAlarms = cachedAlarms.map(a => 
         a.id === alarm.id 
           ? { ...a, isActive: newIsActive } 
           : a
       );
       
-      // Update local state
-      setAlarms(updatedAlarms);
+      // Update cached alarms
+      saveCachedAlarms(updatedAlarms);
       
       // If this is the selected alarm, update its state too
       if (selectedAlarm && selectedAlarm.id === alarm.id) {
         setIsAlarmActive(newIsActive);
         setSelectedAlarm({...selectedAlarm, isActive: newIsActive});
       }
-      
-      // Save to storage
-      try {
-        await AsyncStorage.setItem('alarms', JSON.stringify(updatedAlarms));
-        console.log("Successfully saved updated alarm state to storage");
-      } catch (error) {
-        console.error('Error saving alarm state to storage:', error);
-        throw error; // Rethrow to be caught by outer try/catch
-      }
     } catch (error) {
       console.error('Error toggling alarm state:', error);
       Alert.alert('Error', 'Failed to update alarm. Please try again.');
     }
-  }, [alarms, selectedAlarm]);
+  }, [cachedAlarms, selectedAlarm, saveCachedAlarms]);
   
   // Delete alarm
   const deleteAlarm = useCallback((alarm: Alarm) => {
@@ -394,25 +380,16 @@ export default function ClockScreen() {
               console.log("Proceeding with alarm deletion for ID:", alarm.id);
               
               // Filter out the alarm to delete
-              const updatedAlarms = alarms.filter(a => a.id !== alarm.id);
-              console.log(`Filtered alarms from ${alarms.length} to ${updatedAlarms.length}`);
+              const updatedAlarms = cachedAlarms.filter(a => a.id !== alarm.id);
+              console.log(`Filtered alarms from ${cachedAlarms.length} to ${updatedAlarms.length}`);
               
-              // Update local state first
-              setAlarms(updatedAlarms);
+              // Update cached alarms
+              saveCachedAlarms(updatedAlarms);
               
               // If we're deleting the selected alarm, clear the selection
               if (selectedAlarm && selectedAlarm.id === alarm.id) {
                 console.log("Deleted alarm was the selected alarm, clearing selection");
                 setSelectedAlarm(null);
-              }
-              
-              // Save to storage
-              try {
-                await AsyncStorage.setItem('alarms', JSON.stringify(updatedAlarms));
-                console.log("Successfully saved updated alarms to storage after deletion");
-              } catch (storageError) {
-                console.error('Error saving to storage after deletion:', storageError);
-                throw storageError; // Rethrow to be caught by outer try/catch
               }
             } catch (error) {
               console.error('Error during alarm deletion:', error);
@@ -423,7 +400,7 @@ export default function ClockScreen() {
         }
       ]
     );
-  }, [alarms, selectedAlarm]);
+  }, [cachedAlarms, selectedAlarm, saveCachedAlarms]);
 
   // Format days display
   const getFormattedDays = useCallback((alarm: Alarm) => {
@@ -471,7 +448,7 @@ export default function ClockScreen() {
   // Render alarm list section
   const renderAlarmList = useCallback(() => {
     perf.logRender('renderAlarmList');
-    if (!alarms || alarms.length === 0) {
+    if (!cachedAlarms || cachedAlarms.length === 0) {
       return EmptyListComponent;
     }
     
@@ -479,7 +456,7 @@ export default function ClockScreen() {
       <View style={styles.alarmListContainer}>
         {ListHeaderComponent}
         <VirtualizedList
-          data={alarms}
+          data={cachedAlarms}
           renderItem={renderAlarmItem}
           keyExtractor={(item) => item.id}
           style={styles.alarmList}
@@ -495,7 +472,7 @@ export default function ClockScreen() {
         />
       </View>
     );
-  }, [alarms, renderAlarmItem, EmptyListComponent, ListHeaderComponent]);
+  }, [cachedAlarms, renderAlarmItem, EmptyListComponent, ListHeaderComponent]);
 
   return (
     <SafeAreaView style={styles.container}>

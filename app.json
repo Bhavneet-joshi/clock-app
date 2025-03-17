@@ -87,8 +87,8 @@
       "fallbackToCacheTimeout": 0,
       "url": "https://u.expo.dev/faeb7ab7-8c84-49a8-aba5-0f54943c4b30"
     },
-    "fonts": {
-      "Doto": "./assets/fonts/pixel/Doto.ttf"
-    }
+    "fonts": [
+      "./assets/fonts/pixel/Doto.ttf"
+    ]
   }
 }

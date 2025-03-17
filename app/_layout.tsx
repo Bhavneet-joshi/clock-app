@@ -32,7 +32,7 @@ if (Platform.OS === 'web') {
       fontPreload.rel = 'preload';
       fontPreload.as = 'font';
       fontPreload.type = 'font/ttf';
-      fontPreload.href = './assets/fonts/pixel/Doto.ttf';
+      fontPreload.href = './fonts/pixel/Doto.ttf';
       fontPreload.crossOrigin = 'anonymous';
       document.head.appendChild(fontPreload);
     } catch (e) {
@@ -50,11 +50,15 @@ if (Platform.OS === 'web') {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   
-  // Load pixel font
+  // Load pixel font - use two paths to ensure at least one works
   const [loaded] = useFonts({
     'Doto': Platform.OS === 'web' 
-      ? './assets/fonts/pixel/Doto.ttf'
-      : require('../assets/fonts/pixel/Doto.ttf'),
+      ? './fonts/pixel/Doto.ttf'
+      : Platform.select({
+          ios: require('../assets/fonts/pixel/Doto.ttf'),
+          android: require('../fonts/pixel/Doto.ttf'),
+          default: require('../assets/fonts/pixel/Doto.ttf')
+        }),
   });
   
   // For web platform, implement progressive rendering

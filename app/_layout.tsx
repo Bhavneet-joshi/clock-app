@@ -32,7 +32,7 @@ if (Platform.OS === 'web') {
       fontPreload.rel = 'preload';
       fontPreload.as = 'font';
       fontPreload.type = 'font/ttf';
-      fontPreload.href = '/assets/fonts/pixel/Doto.ttf';
+      fontPreload.href = './assets/fonts/pixel/Doto.ttf';
       fontPreload.crossOrigin = 'anonymous';
       document.head.appendChild(fontPreload);
     } catch (e) {
@@ -53,7 +53,7 @@ export default function RootLayout() {
   // Load pixel font
   const [loaded] = useFonts({
     'Doto': Platform.OS === 'web' 
-      ? '/assets/fonts/pixel/Doto.ttf'
+      ? './assets/fonts/pixel/Doto.ttf'
       : require('../assets/fonts/pixel/Doto.ttf'),
   });
   

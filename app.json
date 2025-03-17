@@ -20,7 +20,7 @@
       "buildNumber": "1",
       "infoPlist": {
         "UIAppFonts": [
-          "assets/fonts/pixel/Doto.ttf"
+          "./assets/fonts/pixel/Doto.ttf"
         ]
       }
     },

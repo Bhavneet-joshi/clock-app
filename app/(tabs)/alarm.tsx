@@ -46,6 +46,410 @@ interface Alarm {
   createdAt?: number;
 }
 
+// Define styles outside of the component to avoid the "Cannot access 'styles' before initialization" error
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  headerTitle: {
+    color: '#a4e4a2',
+    fontSize: 24,
+    fontFamily: 'Doto',
+    letterSpacing: 2,
+  },
+  backButton: {
+    padding: 8,
+  },
+  backButtonText: {
+    color: '#a4e4a2',
+    fontSize: 24,
+    fontFamily: 'Doto',
+  },
+  saveButton: {
+    padding: 8,
+  },
+  saveButtonText: {
+    color: '#a4e4a2',
+    fontSize: 24,
+    fontFamily: 'Doto',
+  },
+  loadingText: {
+    color: '#a4e4a2',
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 50,
+    fontFamily: 'digital-mono',
+  },
+  statusBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  statusTime: {
+    color: '#a4e4a2',
+    fontFamily: 'digital-mono',
+    fontSize: 14,
+  },
+  battery: {
+    flexDirection: 'row',
+  },
+  signal: {
+    color: '#a4e4a2',
+    marginRight: 5,
+    fontSize: 10,
+    fontFamily: 'digital-mono',
+  },
+  wifi: {
+    color: '#a4e4a2',
+    marginRight: 5,
+    fontSize: 10,
+    fontFamily: 'digital-mono',
+  },
+  batt: {
+    color: '#a4e4a2',
+    fontSize: 10,
+    fontFamily: 'digital-mono',
+  },
+  timePickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 180,
+    marginVertical: 20,
+  },
+  timeWheel: {
+    height: 180,
+    width: 80,
+  },
+  timeWheelContent: {
+    paddingVertical: 60,
+  },
+  timeWheelItem: {
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedTimeWheelItem: {
+    backgroundColor: 'rgba(164, 228, 162, 0.1)',
+  },
+  timeWheelText: {
+    fontFamily: Platform.select({ 
+      web: 'monospace', 
+      default: 'Doto' 
+    }),
+    fontSize: 24,
+    color: '#666',
+  },
+  selectedTimeWheelText: {
+    color: '#a4e4a2',
+    fontSize: 32,
+  },
+  dimmedTimeWheelText: {
+    color: '#666',
+  },
+  timeWheelSeparator: {
+    fontFamily: Platform.select({ 
+      web: 'monospace', 
+      default: 'Doto' 
+    }),
+    fontSize: 32,
+    color: '#a4e4a2',
+    marginHorizontal: 10,
+  },
+  selectedTimeContainer: {
+    backgroundColor: 'rgba(164, 228, 162, 0.2)',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    marginTop: 20,
+    width: '80%',
+  },
+  selectedTimeText: {
+    color: '#a4e4a2',
+    fontSize: 42,
+    fontFamily: Platform.select({ 
+      web: 'monospace', 
+      default: 'Doto' 
+    }),
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    color: '#a4e4a2',
+    fontSize: 16,
+    fontFamily: 'digital-mono',
+    marginBottom: 10,
+  },
+  daysContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  dayButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(164, 228, 162, 0.3)',
+  },
+  activeDayButton: {
+    backgroundColor: 'rgba(164, 228, 162, 0.2)',
+    borderColor: '#a4e4a2',
+  },
+  dayText: {
+    color: '#a4e4a2',
+    fontSize: 12,
+    fontFamily: 'Doto',
+  },
+  activeDayText: {
+    color: '#a4e4a2',
+  },
+  functionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  functionButtonGroup: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    width: '33%',
+  },
+  functionIconButton: {
+    marginBottom: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(164, 228, 162, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  functionIcon: {
+    width: 24,
+    height: 24,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  functionTextContainer: {
+    alignItems: 'center',
+  },
+  functionTitle: {
+    color: '#a4e4a2',
+    fontSize: 14,
+    fontFamily: 'digital-mono',
+    marginBottom: 5,
+  },
+  functionValue: {
+    color: '#a4e4a2',
+    fontSize: 12,
+    fontFamily: 'digital-mono',
+    opacity: 0.7,
+  },
+  bottomControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'auto',
+    marginBottom: 20,
+  },
+  cancelButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(164, 228, 162, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)',
+      },
+    }),
+  },
+  confirmButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#a4e4a2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)',
+      },
+    }),
+  },
+  controlsText: {
+    color: '#a4e4a2',
+    fontSize: 14,
+    fontFamily: 'digital-mono',
+  },
+  homeBar: {
+    width: 100,
+    height: 5,
+    backgroundColor: '#a4e4a2',
+    borderRadius: 2.5,
+    alignSelf: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    padding: 20,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#a4e4a2',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: '#1a1a1a',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  timeDisplay: {
+    backgroundColor: '#121212',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  timeText: {
+    color: '#fff',
+    fontSize: 40,
+    fontFamily: 'Doto',
+  },
+  timePicker: {
+    width: Platform.OS === 'ios' ? '100%' : 'auto',
+    height: 180,
+  },
+  section: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  input: {
+    backgroundColor: '#222',
+    color: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    fontFamily: 'Doto',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  optionTextContainer: {
+    flex: 1,
+  },
+  optionText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Doto',
+  },
+  optionValue: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 4,
+    fontFamily: 'Doto',
+  },
+  optionButton: {
+    padding: 8,
+  },
+  arrowIcon: {
+    color: '#666',
+    fontSize: 18,
+    fontFamily: 'Doto',
+  },
+  switch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
+  },
+  pickerItemText: {
+    color: '#ffffff',
+    fontFamily: 'Doto',
+    fontSize: 18,
+  },
+  labelText: {
+    color: '#a4e4a2',
+    fontFamily: 'Doto',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  soundText: {
+    color: '#a4e4a2',
+    fontFamily: 'Doto',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  soundOption: {
+    color: '#ffffff',
+    fontFamily: 'Doto',
+    fontSize: 14,
+  },
+  switchText: {
+    color: '#a4e4a2',
+    fontFamily: 'Doto',
+    fontSize: 16,
+  },
+  buttonText: {
+    color: '#000000',
+    fontWeight: 'bold',
+    fontSize: 16,
+    fontFamily: 'Doto',
+  },
+});
+
 export default function AlarmScreen() {
   const router = useRouter();
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -408,411 +812,6 @@ export default function AlarmScreen() {
       </View>
     );
   }, [activeDays, toggleDay]);
-
-  // Create styles with access to fontsLoaded state
-  const styles = useMemo(() => StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#000',
-      padding: 20,
-    },
-    loadingText: {
-      color: '#a4e4a2',
-      fontSize: 18,
-      textAlign: 'center',
-      marginTop: 50,
-      fontFamily: 'digital-mono',
-    },
-    statusBar: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 20,
-    },
-    statusTime: {
-      color: '#a4e4a2',
-      fontFamily: 'digital-mono',
-      fontSize: 14,
-    },
-    battery: {
-      flexDirection: 'row',
-    },
-    signal: {
-      color: '#a4e4a2',
-      marginRight: 5,
-      fontSize: 10,
-      fontFamily: 'digital-mono',
-    },
-    wifi: {
-      color: '#a4e4a2',
-      marginRight: 5,
-      fontSize: 10,
-      fontFamily: 'digital-mono',
-    },
-    batt: {
-      color: '#a4e4a2',
-      fontSize: 10,
-      fontFamily: 'digital-mono',
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: '#222',
-    },
-    headerTitle: {
-      color: '#a4e4a2',
-      fontSize: 24,
-      fontFamily: 'Doto',
-      letterSpacing: 2,
-    },
-    timePickerContainer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: 180,
-      marginVertical: 20,
-    },
-    timeWheel: {
-      height: 180,
-      width: 80,
-    },
-    timeWheelContent: {
-      paddingVertical: 60,
-    },
-    timeWheelItem: {
-      height: 60,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    selectedTimeWheelItem: {
-      backgroundColor: 'rgba(164, 228, 162, 0.1)',
-    },
-    timeWheelText: {
-      fontFamily: Platform.select({ 
-        web: 'monospace', 
-        default: fontsLoaded ? 'digital-mono' : 'monospace' 
-      }),
-      fontSize: 24,
-      color: '#666',
-    },
-    selectedTimeWheelText: {
-      color: '#a4e4a2',
-      fontSize: 32,
-    },
-    dimmedTimeWheelText: {
-      color: '#666',
-    },
-    timeWheelSeparator: {
-      fontFamily: Platform.select({ 
-        web: 'monospace', 
-        default: fontsLoaded ? 'digital-mono' : 'monospace' 
-      }),
-      fontSize: 32,
-      color: '#a4e4a2',
-      marginHorizontal: 10,
-    },
-    selectedTimeContainer: {
-      backgroundColor: 'rgba(164, 228, 162, 0.2)',
-      paddingVertical: 15,
-      paddingHorizontal: 30,
-      borderRadius: 8,
-      marginTop: 20,
-      width: '80%',
-    },
-    selectedTimeText: {
-      color: '#a4e4a2',
-      fontSize: 42,
-      fontFamily: Platform.select({ 
-        web: 'monospace', 
-        default: fontsLoaded ? 'digital-mono' : 'monospace' 
-      }),
-      textAlign: 'center',
-    },
-    sectionTitle: {
-      color: '#a4e4a2',
-      fontSize: 16,
-      fontFamily: 'digital-mono',
-      marginBottom: 10,
-    },
-    daysContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 20,
-    },
-    dayButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(164, 228, 162, 0.3)',
-    },
-    activeDayButton: {
-      backgroundColor: 'rgba(164, 228, 162, 0.2)',
-      borderColor: '#a4e4a2',
-    },
-    dayText: {
-      color: '#a4e4a2',
-      fontSize: 12,
-      fontFamily: 'Doto',
-    },
-    activeDayText: {
-      color: '#a4e4a2',
-    },
-    functionContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 20,
-    },
-    functionButtonGroup: {
-      flexDirection: 'column',
-      alignItems: 'center',
-      width: '33%',
-    },
-    functionIconButton: {
-      marginBottom: 10,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(164, 228, 162, 0.1)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    functionIcon: {
-      width: 24,
-      height: 24,
-      textAlign: 'center',
-      lineHeight: 24,
-    },
-    functionTextContainer: {
-      alignItems: 'center',
-    },
-    functionTitle: {
-      color: '#a4e4a2',
-      fontSize: 14,
-      fontFamily: 'digital-mono',
-      marginBottom: 5,
-    },
-    functionValue: {
-      color: '#a4e4a2',
-      fontSize: 12,
-      fontFamily: 'digital-mono',
-      opacity: 0.7,
-    },
-    bottomControls: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 'auto',
-      marginBottom: 20,
-    },
-    cancelButton: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      backgroundColor: 'rgba(164, 228, 162, 0.1)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-        },
-        android: {
-          elevation: 2,
-        },
-        web: {
-          boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)',
-        },
-      }),
-    },
-    confirmButton: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      backgroundColor: '#a4e4a2',
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-        },
-        android: {
-          elevation: 2,
-        },
-        web: {
-          boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)',
-        },
-      }),
-    },
-    controlsText: {
-      color: '#a4e4a2',
-      fontSize: 14,
-      fontFamily: 'digital-mono',
-    },
-    homeBar: {
-      width: 100,
-      height: 5,
-      backgroundColor: '#a4e4a2',
-      borderRadius: 2.5,
-      alignSelf: 'center',
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#1a1a1a',
-    },
-    errorContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#1a1a1a',
-      padding: 20,
-    },
-    errorText: {
-      color: '#ff6b6b',
-      fontSize: 16,
-      textAlign: 'center',
-      marginBottom: 20,
-    },
-    retryButton: {
-      backgroundColor: '#a4e4a2',
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 5,
-    },
-    retryButtonText: {
-      color: '#1a1a1a',
-      fontSize: 14,
-      fontWeight: 'bold',
-    },
-    backButton: {
-      padding: 8,
-    },
-    backButtonText: {
-      color: '#a4e4a2',
-      fontSize: 24,
-      fontFamily: 'Doto',
-    },
-    saveButton: {
-      padding: 8,
-    },
-    saveButtonText: {
-      color: '#a4e4a2',
-      fontSize: 24,
-      fontFamily: 'Doto',
-    },
-    content: {
-      flex: 1,
-      padding: 16,
-    },
-    timeDisplay: {
-      backgroundColor: '#121212',
-      paddingVertical: 16,
-      paddingHorizontal: 32,
-      borderRadius: 12,
-    },
-    timeText: {
-      color: '#fff',
-      fontSize: 40,
-      fontFamily: 'Doto',
-    },
-    timePicker: {
-      width: Platform.OS === 'ios' ? '100%' : 'auto',
-      height: 180,
-    },
-    section: {
-      backgroundColor: '#121212',
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 20,
-    },
-    input: {
-      backgroundColor: '#222',
-      color: '#fff',
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      fontFamily: 'Doto',
-    },
-    optionRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: '#222',
-    },
-    optionTextContainer: {
-      flex: 1,
-    },
-    optionText: {
-      color: '#fff',
-      fontSize: 16,
-      fontFamily: 'Doto',
-    },
-    optionValue: {
-      color: '#888',
-      fontSize: 14,
-      marginTop: 4,
-      fontFamily: 'Doto',
-    },
-    optionButton: {
-      padding: 8,
-    },
-    arrowIcon: {
-      color: '#666',
-      fontSize: 18,
-      fontFamily: 'Doto',
-    },
-    switch: {
-      transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
-    },
-    pickerItemText: {
-      color: '#ffffff',
-      fontFamily: 'Doto',
-      fontSize: 18,
-    },
-    labelText: {
-      color: '#a4e4a2',
-      fontFamily: 'Doto',
-      fontSize: 16,
-      marginBottom: 10,
-    },
-    soundText: {
-      color: '#a4e4a2',
-      fontFamily: 'Doto',
-      fontSize: 16,
-      marginBottom: 10,
-    },
-    soundOption: {
-      color: '#ffffff',
-      fontFamily: 'Doto',
-      fontSize: 14,
-    },
-    switchText: {
-      color: '#a4e4a2',
-      fontFamily: 'Doto',
-      fontSize: 16,
-    },
-    buttonText: {
-      color: '#000000',
-      fontWeight: 'bold',
-      fontSize: 16,
-      fontFamily: 'Doto',
-    },
-  }), [fontsLoaded]);
 
   // Show loading screen
   if (isLoading || !fontsLoaded) {

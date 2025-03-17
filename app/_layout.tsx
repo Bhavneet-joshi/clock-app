@@ -5,17 +5,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import 'react-native-reanimated';
-import { Platform, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Platform, View, Text } from 'react-native';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useReducedMotionConfig } from '@/hooks/useReducedMotionConfig';
 import { usePerformanceOptimizations } from '@/hooks/usePerformanceOptimizations';
-import useIconFonts from '@/hooks/useIconFonts';
 import TouchCapture from '@/components/TouchCapture';
 import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 // Optimize performance for web platform
@@ -28,26 +26,18 @@ if (Platform.OS === 'web') {
   
   // Add high priority preloads for critical assets
   if (typeof document !== 'undefined' && document.head) {
-    // Try multiple possible font paths for preloading - using the renamed font file
-    const fontPaths = [
-      './assets/fonts/digital7mono.ttf',
-      './fonts/digital7mono.ttf',
-    ];
-    
-    // Create preload links for each possible path
-    fontPaths.forEach(path => {
-      try {
-        const fontPreload = document.createElement('link');
-        fontPreload.rel = 'preload';
-        fontPreload.as = 'font';
-        fontPreload.type = 'font/ttf';
-        fontPreload.href = path;
-        fontPreload.crossOrigin = 'anonymous';
-        document.head.appendChild(fontPreload);
-      } catch (e) {
-        // Silently fail if we can't add a preload
-      }
-    });
+    // Preload the pixel font
+    try {
+      const fontPreload = document.createElement('link');
+      fontPreload.rel = 'preload';
+      fontPreload.as = 'font';
+      fontPreload.type = 'font/ttf';
+      fontPreload.href = '/assets/fonts/pixel/Doto.ttf';
+      fontPreload.crossOrigin = 'anonymous';
+      document.head.appendChild(fontPreload);
+    } catch (e) {
+      console.warn('Failed to preload font:', e);
+    }
     
     // Add web vitals optimization hints
     const preconnect = document.createElement('link');
@@ -60,15 +50,12 @@ if (Platform.OS === 'web') {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   
-  // Load digital fonts
+  // Load pixel font
   const [loaded] = useFonts({
-    'Digital-Mono': Platform.OS === 'web' 
-      ? require('../fonts/digital7mono.ttf') 
-      : require('../assets/fonts/digital7mono.ttf'),
+    'Doto': Platform.OS === 'web' 
+      ? '/assets/fonts/pixel/Doto.ttf'
+      : require('../assets/fonts/pixel/Doto.ttf'),
   });
-  
-  // Load icon fonts using our specialized hook
-  const iconFontsLoaded = useIconFonts();
   
   // For web platform, implement progressive rendering
   const [isReady, setIsReady] = useState(Platform.OS !== 'web');
@@ -96,7 +83,7 @@ export default function RootLayout() {
   );
 
   useEffect(() => {
-    if (loaded && iconFontsLoaded) {
+    if (loaded) {
       // Set a minimum delay for web to ensure UI is ready
       if (Platform.OS === 'web') {
         // Use requestAnimationFrame for smoother rendering
@@ -112,16 +99,31 @@ export default function RootLayout() {
         SplashScreen.hideAsync();
       }
     }
-  }, [loaded, iconFontsLoaded]);
+  }, [loaded]);
 
-  if (!loaded || !iconFontsLoaded || !isReady) {
-    return null;
+  if (!loaded || !isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a1a' }}>
+        <Text style={{ color: '#a4e4a2', fontSize: 18, fontFamily: 'System' }}>Loading resources...</Text>
+      </View>
+    );
   }
 
   return (
     <TouchCapture>
       <ThemeProvider value={theme}>
-        <Stack>
+        <Stack screenOptions={{
+          headerStyle: {
+            backgroundColor: '#1a1a1a',
+          },
+          headerTintColor: '#a4e4a2',
+          headerTitleStyle: {
+            fontFamily: 'Doto',
+          },
+          contentStyle: {
+            backgroundColor: '#1a1a1a',
+          },
+        }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
         </Stack>

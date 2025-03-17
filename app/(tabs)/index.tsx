@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, FlatList, Alert, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -9,11 +8,27 @@ import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 import { useAsyncStorageCache } from '../../hooks/useAsyncStorageCache';
 import VirtualizedList from '../../components/VirtualizedList';
 import { useWebWorker } from '../../hooks/useWebWorker';
+import SafeTouchableOpacity from '../../components/SafeTouchableOpacity';
 
 const { width } = Dimensions.get('window');
 
+// Pixel-style icons represented as text
+const Icons = {
+  battery: "■■■■■■",
+  signal: "●●●●",
+  play: "►",
+  pause: "⏸",
+  trash: "⛔",
+  add: "+"
+};
+
 // Memoized components for better performance
-const Clock = React.memo(({ hours, minutes, seconds, showColons }: { hours: string, minutes: string, seconds: string, showColons: boolean }) => {
+const Clock = React.memo(({ time }: { time: Date }) => {
+  const hours = time.getHours().toString().padStart(2, '0');
+  const minutes = time.getMinutes().toString().padStart(2, '0');
+  const seconds = time.getSeconds().toString().padStart(2, '0');
+  const showColons = time.getSeconds() % 2 === 0;
+
   return (
     <View style={styles.clockContainer}>
       <Text style={styles.mainTime}>
@@ -45,18 +60,22 @@ const AlarmItem = React.memo(({
         <Text style={[styles.alarmTime, !item.isActive && styles.inactiveAlarmText]}>
           {formatAlarmTime(item.time)}
         </Text>
-        <TouchableOpacity 
+        <SafeTouchableOpacity 
           style={styles.toggleButton}
           onPress={() => onToggle(item)}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons 
-            name={item.isActive ? "play-circle" : "pause-circle"} 
-            size={32} 
-            color={item.isActive ? "#a4e4a2" : "#666"} 
-          />
-        </TouchableOpacity>
+          <Text 
+            style={{ 
+              fontSize: 24, 
+              color: item.isActive ? "#a4e4a2" : "#666", 
+              fontFamily: 'Doto' 
+            }}
+          >
+            {item.isActive ? Icons.play : Icons.pause}
+          </Text>
+        </SafeTouchableOpacity>
       </View>
       <View style={styles.alarmDetailsContainer}>
         <Text style={[styles.songTitle, !item.isActive && styles.inactiveAlarmText]}>
@@ -64,14 +83,14 @@ const AlarmItem = React.memo(({
         </Text>
         <Text style={styles.alarmDays}>{getFormattedDays(item)}</Text>
       </View>
-      <TouchableOpacity 
+      <SafeTouchableOpacity 
         style={styles.deleteButton} 
         onPress={() => onDelete(item)}
         activeOpacity={0.7}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
-        <Ionicons name="trash-outline" size={20} color="#ff5252" />
-      </TouchableOpacity>
+        <Text style={{ fontSize: 18, color: "#ff5252", fontFamily: 'Doto' }}>{Icons.trash}</Text>
+      </SafeTouchableOpacity>
     </View>
   );
 }, (prevProps, nextProps) => {
@@ -98,72 +117,22 @@ interface Alarm {
 }
 
 export default function ClockScreen() {
-  // Add performance monitoring
   const perf = usePerformanceMonitor('ClockScreen');
-
   const router = useRouter();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [showColons, setShowColons] = useState(true);
   const [nextAlarmMinutes, setNextAlarmMinutes] = useState<number | null>(null);
   const [sliderPosition, setSliderPosition] = useState(30);
   const [activeDays, setActiveDays] = useState([false, false, false, true, false, false, false]);
   const [selectedAlarm, setSelectedAlarm] = useState<Alarm | null>(null);
   const [isAlarmActive, setIsAlarmActive] = useState(true);
   
-  // Use the cached version of AsyncStorage
   const { data: cachedAlarms, saveData: saveCachedAlarms, loadData: refreshAlarms } = useAsyncStorageCache('alarms', []);
 
-  // Setup web worker for alarm calculation
-  const nextAlarmWorkerFunction = (alarmsData: Alarm[]) => {
-    if (!alarmsData || alarmsData.length === 0) {
-      return { nextAlarmMinutes: null, selectedAlarm: null };
-    }
-
-    const now = new Date();
-    const today = now.getDay();
-    
-    let closestAlarm = null;
-    let minDiff = Infinity;
-
-    alarmsData.forEach(alarm => {
-      if (!alarm.isActive) return;
-      
-      if (!alarm.days.some(day => day)) return;
-      
-      const [hours, minutes] = alarm.time.split(':').map(Number);
-      
-      for (let i = 0; i < 7; i++) {
-        if (!alarm.days[i]) continue;
-        
-        let dayDiff = i - today;
-        if (dayDiff < 0) dayDiff += 7;
-        
-        if (dayDiff === 0) {
-          const alarmTime = new Date();
-          alarmTime.setHours(hours, minutes, 0, 0);
-          
-          if (alarmTime <= now) {
-            dayDiff = 7;
-          }
-        }
-        
-        const totalMinutes = dayDiff * 24 * 60 + hours * 60 + minutes - (now.getHours() * 60 + now.getMinutes());
-        
-        if (totalMinutes < minDiff) {
-          minDiff = totalMinutes;
-          closestAlarm = alarm;
-        }
-      }
-    });
-
-    return { 
-      nextAlarmMinutes: closestAlarm ? minDiff : null, 
-      selectedAlarm: closestAlarm || null
-    };
-  };
-
   // Setup the worker
-  const { compute: findNextAlarmCompute, isProcessing: isFindingNextAlarm } = useWebWorker(nextAlarmWorkerFunction, []);
+  const { compute: findNextAlarmCompute, isProcessing: isFindingNextAlarm } = useWebWorker(
+    Platform.OS === 'web' ? '/workers/alarmWorker.js' : null,
+    []
+  );
 
   // Define findNextAlarm before it's used in useEffect
   const findNextAlarm = useCallback(async () => {
@@ -201,23 +170,18 @@ export default function ClockScreen() {
     refreshAlarms();
   }, [refreshAlarms]);
   
-  // Time update effect
+  // Time update effect - optimized for performance
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
-      setShowColons(prev => !prev);
-    }, Platform.OS === 'web' ? 1000 : 1000);
+    }, 1000);
     
     return () => clearInterval(interval);
   }, []);
 
   // Load alarms on mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadAlarms();
-    }, 100);
-    
-    return () => clearTimeout(timer);
+    loadAlarms();
   }, [loadAlarms]);
   
   // Find next alarm when alarms change
@@ -242,29 +206,21 @@ export default function ClockScreen() {
     useCallback(() => {
       const timerId = setTimeout(() => {
         loadAlarms();
-      }, 300); // Larger delay on focus to avoid performance hit during navigation
+      }, 300);
       
       return () => clearTimeout(timerId);
     }, [loadAlarms])
   );
-  
-  // Format time for display
-  const formatTime = useCallback((date: Date) => {
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const seconds = date.getSeconds();
-    
-    const formattedHours = hours.toString().padStart(2, '0');
-    const formattedMinutes = minutes.toString().padStart(2, '0');
-    const formattedSeconds = seconds.toString().padStart(2, '0');
-    
-    return {
-      hours: formattedHours,
-      minutes: formattedMinutes,
-      seconds: formattedSeconds
-    };
-  }, []);
-  
+
+  // Memoize the formatted time string
+  const formattedTime = useMemo(() => {
+    return currentTime.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }, [currentTime]);
+
   // Format time for alarm display (12-hour format)
   const formatAlarmTime = useCallback((timeString: string) => {
     const [hours, minutes] = timeString.split(':').map(Number);
@@ -272,7 +228,7 @@ export default function ClockScreen() {
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   }, []);
-  
+
   // Generate white lines for progress bar - memoized with deps array to prevent recreation
   const progressBarLines = useMemo(() => {
     perf.logRender('progressBarLines');
@@ -306,14 +262,14 @@ export default function ClockScreen() {
     const adjustedCurrentDay = currentDay === 0 ? 6 : currentDay - 1; // Adjust to match our array (0 = Monday)
     
     return days.map((day, index) => (
-      <TouchableOpacity 
+      <SafeTouchableOpacity 
         key={index}
         onPress={() => {
           const newActiveDays = [...activeDays];
           newActiveDays[index] = !newActiveDays[index];
           setActiveDays(newActiveDays);
         }}
-        style={{ pointerEvents: 'auto' }}
+        pointerEventsMode="auto"
       >
         <Text 
           style={[
@@ -324,7 +280,7 @@ export default function ClockScreen() {
         >
           {day}
         </Text>
-      </TouchableOpacity>
+      </SafeTouchableOpacity>
     ));
   }, [currentTime, activeDays, selectedAlarm]);
   
@@ -416,9 +372,8 @@ export default function ClockScreen() {
 
   // Render the clock - this is now using our memoized Clock component
   const renderClock = useCallback(() => {
-    const { hours, minutes, seconds } = formatTime(currentTime);
-    return <Clock hours={hours} minutes={minutes} seconds={seconds} showColons={showColons} />;
-  }, [currentTime, showColons, formatTime]);
+    return <Clock time={currentTime} />;
+  }, [currentTime]);
 
   // Render alarm list item - using optimized memoized component
   const renderAlarmItem = useCallback(({ item }: { item: Alarm }) => {
@@ -479,10 +434,10 @@ export default function ClockScreen() {
       <StatusBar barStyle="light-content" />
       
       <View style={styles.statusBar}>
-        <Text style={styles.statusTime}>{formatTime(currentTime).hours}:{formatTime(currentTime).minutes}</Text>
+        <Text style={styles.statusTime}>{formattedTime}</Text>
         <View style={styles.battery}>
-          <Text style={styles.signal}>●●●●</Text>
-          <Ionicons name="battery-full" size={24} color="#a4e4a2" />
+          <Text style={styles.signal}>{Icons.signal}</Text>
+          <Text style={{color: "#a4e4a2", fontSize: 16, fontFamily: 'Doto'}}>{Icons.battery}</Text>
         </View>
       </View>
       
@@ -500,13 +455,13 @@ export default function ClockScreen() {
       
       {renderAlarmList()}
       
-      <TouchableOpacity 
+      <SafeTouchableOpacity 
         style={styles.addButton}
         onPress={navigateToAlarmScreen}
         activeOpacity={0.7}
       >
-        <Ionicons name="add" size={36} color="#000" />
-      </TouchableOpacity>
+        <Text style={{fontSize: 36, color: "#000", fontFamily: 'Doto'}}>{Icons.add}</Text>
+      </SafeTouchableOpacity>
     </SafeAreaView>
   );
 }

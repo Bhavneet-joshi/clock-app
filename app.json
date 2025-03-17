@@ -1,11 +1,12 @@
 {
   "expo": {
     "name": "Digital Clock",
-    "slug": "digital-clock-app",
-    "version": "1.0.0",
+    "slug": "digital-clock",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "dark",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
@@ -19,57 +20,26 @@
       "bundleIdentifier": "com.admiasmo.digitalclock",
       "buildNumber": "1",
       "infoPlist": {
-        "UIAppFonts": [
-          "./assets/fonts/pixel/Doto.ttf"
-        ]
+        "UIAppFonts": []
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#1a1a1a"
+        "backgroundColor": "#000000"
       },
       "package": "com.admiasmo.digitalclock",
-      "versionCode": 1,
-      "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM",
-        "USE_EXACT_ALARM",
-        "VIBRATE",
-        "WAKE_LOCK"
-      ],
-      "allowBackup": true,
-      "softwareKeyboardLayoutMode": "pan",
-      "enableProguardInReleaseBuilds": true,
-      "enableHermes": true
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/images/favicon.png",
-      "bundler": "metro",
-      "fonts": [
-        {
-          "asset": "./assets/fonts/pixel/Doto.ttf"
-        }
-      ]
-    },
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#1a1a1a",
-      "androidMode": "default",
-      "androidCollapsedTitle": "Clock App",
-      "iosDisplayInForeground": true
+      "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#1a1a1a"
-        }
-      ],
       "expo-router"
     ],
     "experiments": {
+      "typedRoutes": true,
       "tsconfigPaths": true
     },
     "extra": {
@@ -79,16 +49,6 @@
       "eas": {
         "projectId": "faeb7ab7-8c84-49a8-aba5-0f54943c4b30"
       }
-    },
-    "owner": "admiasmo",
-    "runtimeVersion": "1.0.0",
-    "updates": {
-      "enabled": true,
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/faeb7ab7-8c84-49a8-aba5-0f54943c4b30"
-    },
-    "fonts": [
-      "./assets/fonts/pixel/Doto.ttf"
-    ]
+    }
   }
 }

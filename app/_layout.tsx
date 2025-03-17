@@ -26,39 +26,41 @@ if (Platform.OS === 'web') {
   
   // Add high priority preloads for critical assets
   if (typeof document !== 'undefined' && document.head) {
-    // Preload the pixel font
     try {
-      const fontPreload = document.createElement('link');
-      fontPreload.rel = 'preload';
-      fontPreload.as = 'font';
-      fontPreload.type = 'font/ttf';
-      fontPreload.href = './fonts/pixel/Doto.ttf';
-      fontPreload.crossOrigin = 'anonymous';
-      document.head.appendChild(fontPreload);
+      // Use a standard monospace font for web to avoid issues
+      const style = document.createElement('style');
+      style.textContent = `
+        @font-face {
+          font-family: 'Doto';
+          src: local('monospace');
+          font-weight: normal;
+          font-style: normal;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Add web vitals optimization hints
+      const preconnect = document.createElement('link');
+      preconnect.rel = 'preconnect';
+      preconnect.href = window.location.origin;
+      document.head.appendChild(preconnect);
     } catch (e) {
-      console.warn('Failed to preload font:', e);
+      console.warn('Failed to setup web fonts:', e);
     }
-    
-    // Add web vitals optimization hints
-    const preconnect = document.createElement('link');
-    preconnect.rel = 'preconnect';
-    preconnect.href = window.location.origin;
-    document.head.appendChild(preconnect);
   }
 }
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   
-  // Load pixel font - use two paths to ensure at least one works
+  // Use a simpler font loading approach with built-in fonts
   const [loaded] = useFonts({
-    'Doto': Platform.OS === 'web' 
-      ? './fonts/pixel/Doto.ttf'
-      : Platform.select({
-          ios: require('../assets/fonts/pixel/Doto.ttf'),
-          android: require('../fonts/pixel/Doto.ttf'),
-          default: require('../assets/fonts/pixel/Doto.ttf')
-        }),
+    'Doto': Platform.select({
+      web: 'monospace',
+      ios: 'Courier',
+      android: 'monospace',
+      default: 'monospace',
+    }),
   });
   
   // For web platform, implement progressive rendering
